@@ -436,8 +436,8 @@ def net_train(args):
                 d[key] = convert_dict_to_namespace(value)
         return Namespace(**d)
     
-    with open('/workspace/TLIO/src/SPConvNets/opt.json', 'r') as args_file:
-        opt_e2pn = json.load(args_file)
+    # with open('/workspace/TLIO/src/SPConvNets/opt.json', 'r') as args_file:
+    #     opt_e2pn = json.load(args_file)
     # with open('/workspace/TLIO/src/SPConvNets/opt-inv.json', 'r') as args_file:
     #     opt_e2pn = json.load(args_file)
         

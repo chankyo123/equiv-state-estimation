@@ -21,6 +21,10 @@ from torch.utils.tensorboard import SummaryWriter
 from utils.logging import logging
 from utils.utils import to_device
 
+from importlib import import_module
+import json
+from argparse import Namespace
+from torch import nn
 def torch_to_numpy(torch_arr):
     return torch_arr.cpu().detach().numpy()
 
@@ -82,8 +86,12 @@ def do_train(network, train_loader, device, epoch, optimizer, transforms=[]):
             sample = transform(sample)
         feat = sample["feats"]["imu0"]
         optimizer.zero_grad()
+        
+        ### >>> check input feature shape ###
+        # print("feature shape : ", feat.shape)   # shape => torch.Size([1024, 6, 200]) (batch : 1024, pos : 6, sliding window : 200)
+        ### <<< check input feature shape ###
         pred, pred_cov = network(feat)
-
+    
         if len(pred.shape) == 2:
             targ = sample["targ_dt_World"][:,-1,:]
         else:
@@ -124,6 +132,97 @@ def do_train(network, train_loader, device, epoch, optimizer, transforms=[]):
     }
     return train_attr_dict
 
+def do_train_e2pn(network, train_loader, device, epoch, optimizer, transforms=[]):
+    """
+    Train network for one epoch using a specified data loader
+    Outputs all targets, predicts, predicted covariance params, and losses in numpy arrays
+    """
+    train_targets, train_preds, train_preds_cov, train_losses = [], [], [], []
+    network.train()
+
+    #for bid, (feat, targ, _, _) in enumerate(train_loader):
+    for bid, sample in enumerate(train_loader):
+        sample = to_device(sample, device)
+        for transform in transforms:
+            sample = transform(sample)
+        feat = sample["feats"]["imu0"]
+        optimizer.zero_grad()
+        
+        ### >>> check input feature shape ###
+        # print("feature shape : ", feat.shape)   # shape => torch.Size([1024, 6, 200]) (batch : 1024, pos : 6, sliding window : 200) / TLIO
+        ### <<< check input feature shape ###
+        
+        #  (1024, 6, 200) -> (8, 2, 1024, 3)
+        feat_permute = feat.transpose(1,2)   # 1024,6,200 -> 1024,200,6
+        feat_tmp = feat_permute.reshape(-1, 6)  # 1024,200,6 -> 1024 * 200 , 6
+        feat_tmp2 = feat_tmp.view(-1, 3, 2).sum(dim=2)  # 1024,200,6 -> 1024 * 200 * 2, 3
+        # feat_tmp2 = to_device(feat_tmp2, device)
+        
+        check_feat = feat_tmp2.cpu().numpy()    
+        print('check_feat shape : ', check_feat.shape)
+        
+        class LinearReshape(nn.Module):
+            def __init__(self,input_dim, output_dim, reshape_shape):
+                super(LinearReshape, self).__init__()
+                self.linear = nn.Linear(input_dim, output_dim)
+                self.reshape_shape = reshape_shape
+                
+            def forward(self, x):
+                x = self.linear(x)
+                x = x.view(*self.reshape_shape)
+                return 
+        
+        input_dim = feat_tmp2.shape[0]
+        output_dim = 8 * 2 * 1024
+        reshape_shape = (-1, 2, 1024, 3)
+        
+        linear_reshape_module = LinearReshape(input_dim, output_dim, reshape_shape).to(device)
+        # linear_reshape_module = to_device(linear_reshape_module, device)
+        
+        reshape_network = nn.Sequential(linear_reshape_module, network)
+        reshape_network = to_device(reshape_network, device)
+        # pred, pred_cov = network(feat)
+        pred, pred_cov = reshape_network(feat_tmp2)
+    
+        if len(pred.shape) == 2:
+            targ = sample["targ_dt_World"][:,-1,:]
+        else:
+            # Leave off zeroth element since it's 0's. Ex: Net predicts 199 if there's 200 GT
+            targ = sample["targ_dt_World"][:,1:,:].permute(0,2,1)
+
+        loss = get_loss(pred, pred_cov, targ, epoch)
+
+        train_targets.append(torch_to_numpy(targ))
+        train_preds.append(torch_to_numpy(pred))
+        train_preds_cov.append(torch_to_numpy(pred_cov))
+        train_losses.append(torch_to_numpy(loss))
+            
+        #print("Loss full: ", loss)
+
+        loss = loss.mean()
+        loss.backward()
+
+        #print("Loss mean: ", loss.item())
+        
+        #print("Gradients:")
+        #for name, param in network.named_parameters():
+        #    if param.requires_grad:
+        #        print(name, ": ", param.grad)
+
+        torch.nn.utils.clip_grad_norm_(network.parameters(), 0.1, error_if_nonfinite=True)
+        optimizer.step()
+
+    train_targets = np.concatenate(train_targets, axis=0)
+    train_preds = np.concatenate(train_preds, axis=0)
+    train_preds_cov = np.concatenate(train_preds_cov, axis=0)
+    train_losses = np.concatenate(train_losses, axis=0)
+    train_attr_dict = {
+        "targets": train_targets,
+        "preds": train_preds,
+        "preds_cov": train_preds_cov,
+        "losses": train_losses,
+    }
+    return train_attr_dict
 
 def write_summary(summary_writer, attr_dict, epoch, optimizer, mode):
     """ Given the attr_dict write summary and log the losses """
@@ -326,7 +425,45 @@ def net_train(args):
         "cuda:0" if torch.cuda.is_available() and not args.cpu else "cpu"
     )
     network = get_model(args.arch, net_config, args.input_dim, args.output_dim)
+    
+    ### >>> modify network to e2pn arch ###
+    
+    # Load the arguments from the JSON file
+    
+    def convert_dict_to_namespace(d):
+        for key, value in d.items():
+            if isinstance(value, dict):
+                d[key] = convert_dict_to_namespace(value)
+        return Namespace(**d)
+    
+    with open('/workspace/TLIO/src/SPConvNets/opt.json', 'r') as args_file:
+        opt_e2pn = json.load(args_file)
+    # with open('/workspace/TLIO/src/SPConvNets/opt-inv.json', 'r') as args_file:
+    #     opt_e2pn = json.load(args_file)
+        
+    opt_e2pn = convert_dict_to_namespace(opt_e2pn)
+    module = import_module('SPConvNets.models')
+    e2pn_model = getattr(module, 'reg_so3net').build_model_from(opt_e2pn, None)
+    
+    # e2pn_model = getattr(module, 'inv_so3net_pn').build_model_from(opt_e2pn, None)
+    
+    # network_e2pn = 
+    
+    
+    ### <<< modify network to e2pn arch ###
+    
     network.to(device)
+    e2pn_model.to(device)
+    
+    
+    ### >>> print model info ###
+    # print("input dim : ",args.input_dim, " output dim : ", args.output_dim)
+    # print(" >>> network info <<< ")
+    # print(network)
+    # print(" >>> imported info <<< ")
+    # print(e2pn_model)
+    ### <<< print model info ###
+    
     total_params = network.get_num_params()
     logging.info(f'Network "{args.arch}" loaded to device {device}')
     logging.info(f"Total number of parameters: {total_params}")
@@ -384,7 +521,8 @@ def net_train(args):
 
         logging.info(f"-------------- Training, Epoch {epoch} ---------------")
         start_t = time.time()
-        train_attr_dict = do_train(network, train_loader, device, epoch, optimizer, train_transforms)
+        # train_attr_dict = do_train(network, train_loader, device, epoch, optimizer, train_transforms)
+        train_attr_dict = do_train_e2pn(e2pn_model, train_loader, device, epoch, optimizer, train_transforms)
         write_summary(summary_writer, train_attr_dict, epoch, optimizer, "train")
         end_t = time.time()
         logging.info(f"time usage: {end_t - start_t:.3f}s")

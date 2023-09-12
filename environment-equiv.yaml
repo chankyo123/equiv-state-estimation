@@ -1,0 +1,4 @@
+name: equivTLIO
+channels:
+  - defaults
+prefix: /opt/conda/envs/equivTLIO

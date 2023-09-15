@@ -213,7 +213,7 @@ def do_train_e2pn(network, train_loader, device, epoch, optimizer, transforms=[]
         # print('targ size : ', targ.shape)
 
         loss = get_loss(pred, pred_cov, targ, epoch)
-        print('loss executed')
+        # print('loss executed')
 
         train_targets.append(torch_to_numpy(targ))
         train_preds.append(torch_to_numpy(pred))
@@ -318,7 +318,7 @@ def do_train_e2pn2(network, train_loader, device, epoch, optimizer, transforms=[
         # print('targ size : ', targ.shape)
 
         loss = get_loss(pred, pred_cov, targ, epoch)
-        print('loss executed')
+        # print('loss executed')
 
         train_targets.append(torch_to_numpy(targ))
         train_preds.append(torch_to_numpy(pred))

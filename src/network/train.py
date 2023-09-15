@@ -212,6 +212,7 @@ def do_train_e2pn(network, train_loader, device, epoch, optimizer, transforms=[]
             targ = sample["targ_dt_World"][:,1:,:].permute(0,2,1)
         # print('targ size : ', targ.shape)
 
+        print('size check : ', pred.shape, pred_cov.shape, targ.shape)
         loss = get_loss(pred, pred_cov, targ, epoch)
         # print('loss executed')
 

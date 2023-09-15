@@ -108,7 +108,9 @@ def do_train(network, train_loader, device, epoch, optimizer, transforms=[]):
         else:
             # Leave off zeroth element since it's 0's. Ex: Net predicts 199 if there's 200 GT
             targ = sample["targ_dt_World"][:,1:,:].permute(0,2,1)
-
+        
+        print('size check : ', pred.shape, pred_cov.shape, targ.shape, epoch)
+        
         loss = get_loss(pred, pred_cov, targ, epoch)
 
         train_targets.append(torch_to_numpy(targ))
@@ -212,7 +214,7 @@ def do_train_e2pn(network, train_loader, device, epoch, optimizer, transforms=[]
             targ = sample["targ_dt_World"][:,1:,:].permute(0,2,1)
         # print('targ size : ', targ.shape)
 
-        # print('size check : ', pred.shape, pred_cov.shape, targ.shape)
+        print('size check : ', pred.shape, pred_cov.shape, targ.shape, epoch)
         loss = get_loss(pred, pred_cov, targ, epoch)
         # print('loss executed')
 
@@ -651,8 +653,8 @@ def net_train(args):
 
         logging.info(f"-------------- Training, Epoch {epoch} ---------------")
         start_t = time.time()
-        # train_attr_dict = do_train(network, train_loader, device, epoch, optimizer, train_transforms)
-        train_attr_dict = do_train_e2pn(e2pn_model, train_loader, device, epoch, optimizer, train_transforms)
+        train_attr_dict = do_train(network, train_loader, device, epoch, optimizer, train_transforms)
+        # train_attr_dict = do_train_e2pn(e2pn_model, train_loader, device, epoch, optimizer, train_transforms)
         write_summary(summary_writer, train_attr_dict, epoch, optimizer, "train")
         end_t = time.time()
         logging.info(f"time usage: {end_t - start_t:.3f}s")

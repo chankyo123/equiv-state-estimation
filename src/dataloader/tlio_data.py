@@ -171,6 +171,7 @@ class TlioData:
             num_workers=self.num_workers,
             persistent_workers=self.persistent_workers,
             pin_memory=True,
+            drop_last=True,
         )
 
     def test_dataloader(self):

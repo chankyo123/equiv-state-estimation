@@ -149,7 +149,7 @@ def do_train_e2pn(network, train_loader, device, epoch, optimizer, transforms=[]
     Outputs all targets, predicts, predicted covariance params, and losses in numpy arrays
     """
     
-    print(network)
+    # print(network)
     
     train_targets, train_preds, train_preds_cov, train_losses = [], [], [], []
     network.train()
@@ -253,7 +253,7 @@ def do_train_e2pn2(network, train_loader, device, epoch, optimizer, transforms=[
     Outputs all targets, predicts, predicted covariance params, and losses in numpy arrays
     """
     
-    print(network)
+    # print(network)
     
     train_targets, train_preds, train_preds_cov, train_losses = [], [], [], []
     network.train()

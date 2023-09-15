@@ -186,12 +186,12 @@ def do_train_e2pn(network, train_loader, device, epoch, optimizer, transforms=[]
                 # print('x.shape : ', x.shape)
                 x = self.linear(x)
                 x = x.transpose(0,1)
-                x = x.view(-1,1024,3)
+                x = x.view(-1,20,3)
                 return x
         
         input_dim = feat_tmp3.shape[1]
-        output_dim = 8 * 2 * 1024
-        reshape_shape = (16, 1024, 3)
+        output_dim = 8 * 2 * 20
+        reshape_shape = (16, 20, 3)
         
         # print('feat dim : ', feat.shape, 'feat_tmp3 : ', feat_tmp3.shape)
         
@@ -288,14 +288,14 @@ def do_train_e2pn2(network, train_loader, device, epoch, optimizer, transforms=[
                 x = x.view(3,2,8,200)  #6,8,200 -> 3,2,8,200
                 x = x.sum(dim,1)   #3,2,8,200 -> 3,8,200
                 x = x.sum(dim,2) #3,8
-                x = x.unsqueeze(2).repeat(1,1,1024) #3,8,1024
+                x = x.unsqueeze(2).repeat(1,1,20) #3,8,1024
                 x = x.transpose(0,1) #8,3,1024
                 x = x.transpose(2,1) #8,1024,3
                 x = x.unsqueeze(1).repeat(1,2,1,1) #8,2,1024,3
-                print('x shape should be 8,2,1024,3',x.shape)
+                print('x shape should be 8,2,20,3',x.shape)
                 return x
         
-        input_dim = 1024
+        input_dim = 20
         output_dim = 6
         
         # print('feat dim : ', feat.shape, 'feat_tmp3 : ', feat_tmp3.shape)

@@ -29,7 +29,7 @@ class InvSO3ConvModel(nn.Module):
         # nb, np, 3 -> [nb, 3, np] x [nb, 1, np, na]
         x = M.preprocess_input(x, self.na_in, False)
         # x = M.preprocess_input(x, 1)
-        print("x shape : ", x.shape)
+        # print("x shape : ", x.shape)
         for block_i, block in enumerate(self.backbone):
             x = block(x)
 

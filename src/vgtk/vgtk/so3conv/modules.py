@@ -215,6 +215,7 @@ class BasicS2ConvV2(nn.Module):
         self.register_buffer('idxs_a', idxs_a)  #   c2, c1, k, a(channels), a(rotations)
 
     def forward(self, x):
+        # print('x shape of baseS2convV2 : ', x.shape)
         W = self.W[:,:,self.idx_map].reshape(self.dim_out, self.dim_in, self.kernel_size, self.anchor_size)    #C2,C1,kernel_size * anchor_size
         W = W[..., None].expand(-1,-1,-1,-1, self.anchor_size)
         W = torch.gather(W, 2, self.idxs_k)  # c2,c1,k,a(channels),a(rotations) -> c2,c1,k,a(channels),a(rotations)
@@ -387,7 +388,6 @@ class S2Conv(nn.Module):
         # print(feats[0].std(-2))
         # import ipdb; ipdb.set_trace()
         
-        print("input shape check : ", feats.shape)
         feats = self.basic_conv(feats)
 
         return inter_idx, inter_w, sample_idx, SphericalPointCloud(xyz, feats, self.anchors)

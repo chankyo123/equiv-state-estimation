@@ -139,6 +139,9 @@ class FcBlock(nn.Module):
         self.dropout = nn.Dropout(0.5)
 
     def forward(self, x):
+        # print("in_channel : ", self.in_channel, "out_channel : ", self.out_channel, "in_dim : ", self.in_dim)
+        # in_channel :  512 out_channel :  3 in_dim :  7
+        # print()
         x = self.prep1(x)
         x = self.bn1(x)
         x = self.fc1(x.view(x.size(0), -1))
@@ -147,7 +150,9 @@ class FcBlock(nn.Module):
         x = self.fc2(x)
         x = self.relu(x)
         x = self.dropout(x)
+        # print('shape before f3 : ', x.shape)  # torch.Size([1024, 512])
         x = self.fc3(x)
+        # print('shape after f3 : ', x.shape)   # torch.Size([1024, 3])
         return x
 
 
@@ -241,6 +246,9 @@ class ResNet1D(nn.Module):
     def forward(self, x):
         x = self.input_block(x)
         x = self.residual_groups(x)
+        
+        # print("shape of x before the outblock : ", x.shape)  # torch.Size([1024, 512, 7])
+
         mean = self.output_block1(x)  # mean
         logstd = self.output_block2(x)  # covariance sigma = exp(2 * logstd)
         return mean, logstd

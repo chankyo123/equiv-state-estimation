@@ -29,11 +29,20 @@ class InvSO3ConvModel(nn.Module):
         # nb, np, 3 -> [nb, 3, np] x [nb, 1, np, na]
         x = M.preprocess_input(x, self.na_in, False)
         # x = M.preprocess_input(x, 1)
-
+        print("x shape : ", x.shape)
         for block_i, block in enumerate(self.backbone):
             x = block(x)
 
         x = self.outblock(x)
+        # normal_x , att = x
+        # x_cpu = x.cpu()
+        # print("shape of x after the outblock : ", len(x), len(x[0]), len(x[0][0]), len(x[0][0]))  # 2 16 64 64
+        # print('normal_x : ', x, 'att : ', att)
+        # print(x)
+        
+        # xa = list(x)
+        # xa = np.array(xa)
+        # print("x_array shape : ", xa.shape)
         return x
 
     def get_anchor(self):

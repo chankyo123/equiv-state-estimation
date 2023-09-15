@@ -6,12 +6,12 @@ Output: 3x1 displacement, 3x1 covariance parameters
 import sys
 import os
 
-sys.path.insert(0,'/workspace/TLIO/src/vgtk')
+sys.path.insert(0,'/workspace/equivTLIO/src/vgtk')
 # sys.path.insert(0, os.path.join(os.path.dirname(__file__),'vgtk') )
 # print('sys path : ',sys.path)
 
 import network
-
+import network.parallel as parallel
 
 from utils.argparse_utils import add_bool_arg
 

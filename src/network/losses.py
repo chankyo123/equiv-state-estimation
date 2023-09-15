@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from network.covariance_parametrization import DiagonalParam
+import torch.nn as nn
 
 MIN_LOG_STD = np.log(1e-3)
 
@@ -39,6 +40,8 @@ pred_logstd:(Nx3) u = [log(sigma_x) log(sigma_y) log(sigma_z)]
 def loss_distribution_diag(pred, pred_logstd, targ):
 
     pred_logstd = torch.maximum(pred_logstd, MIN_LOG_STD * torch.ones_like(pred_logstd))
+    # print("pred shape : ", pred.shape, "targ shape : ", targ.shape, "pred_logstd shape : ", pred_logstd.shape)
+    # pred shape :  torch.Size([1024, 3]) targ shape :  torch.Size([1024, 3]) pred_logstd shape :  torch.Size([1024, 3])
     loss = ((pred - targ).pow(2)) / (2 * torch.exp(2 * pred_logstd)) + pred_logstd
     return loss
 
@@ -88,4 +91,17 @@ def get_loss(pred, pred_logstd, targ, epoch):
         pred_logstd = pred_logstd.detach()
 
     loss = loss_distribution_diag(pred, pred_logstd, targ)
+    return loss
+
+class loss_class(nn.Module):
+  def __init__():
+    super(get_loss, self).__init__()
+    # self.pred = pred
+    # self.pred_logstd = pred_logstd
+    # self.target = target
+    # self.epoch = epoch
+    
+  def forward(self, pred, pred_logstd, target, epoch):
+    loss = get_loss(pred, pred_logstd, targ, epoch)
+    
     return loss

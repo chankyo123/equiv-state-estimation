@@ -154,8 +154,33 @@ def do_train_e2pn(network, train_loader, device, epoch, optimizer, transforms=[]
     # print(network)
     
     train_targets, train_preds, train_preds_cov, train_losses = [], [], [], []
-    network.train()
+    class LinearReshape(nn.Module):
+        def __init__(self,input_dim, output_dim, reshape_shape):
+            super(LinearReshape, self).__init__()
+            self.linear = nn.Linear(input_dim, output_dim)
+            self.reshape_shape = reshape_shape
+            
+        def forward(self, x):
+            # print('x.shape : ', x.shape)
+            x = self.linear(x)
+            x = x.transpose(0,1)
+            x = x.view(-1,20,3)
+            return x
+    
+    input_dim = 204800
+    output_dim = 8 * 2 * 20
+    reshape_shape = (16, 20, 3)
+    
+    # print('feat dim : ', feat.shape, 'feat_tmp3 : ', feat_tmp3.shape)
+    
+    linear_reshape_module = LinearReshape(input_dim, output_dim, reshape_shape).to(device)
+    reshape_network = nn.Sequential(linear_reshape_module, network)
+    
+    # reshape_network = DataParallel(reshape_network)
+    reshape_network = reshape_network.cuda()
 
+    reshape_network.train()
+        
     #for bid, (feat, targ, _, _) in enumerate(train_loader):
     for bid, sample in enumerate(train_loader):
         sample = to_device(sample, device)
@@ -178,30 +203,7 @@ def do_train_e2pn(network, train_loader, device, epoch, optimizer, transforms=[]
         # feat_tmp2 = to_device(feat_tmp2, device)
         # print(feat_permute.device.type, feat_tmp.device.type, feat_tmp2.device.type)
         check_feat = feat_tmp3.cpu().numpy()    
-        class LinearReshape(nn.Module):
-            def __init__(self,input_dim, output_dim, reshape_shape):
-                super(LinearReshape, self).__init__()
-                self.linear = nn.Linear(input_dim, output_dim)
-                self.reshape_shape = reshape_shape
-                
-            def forward(self, x):
-                # print('x.shape : ', x.shape)
-                x = self.linear(x)
-                x = x.transpose(0,1)
-                x = x.view(-1,20,3)
-                return x
         
-        input_dim = feat_tmp3.shape[1]
-        output_dim = 8 * 2 * 20
-        reshape_shape = (16, 20, 3)
-        
-        # print('feat dim : ', feat.shape, 'feat_tmp3 : ', feat_tmp3.shape)
-        
-        linear_reshape_module = LinearReshape(input_dim, output_dim, reshape_shape).to(device)
-        reshape_network = nn.Sequential(linear_reshape_module, network)
-        
-        # reshape_network = DataParallel(reshape_network)
-        reshape_network = reshape_network.cuda()
         
         # reshape_network = nn.DataParallel(reshape_network, device_ids = [0,1])
         
@@ -653,8 +655,8 @@ def net_train(args):
 
         logging.info(f"-------------- Training, Epoch {epoch} ---------------")
         start_t = time.time()
-        train_attr_dict = do_train(network, train_loader, device, epoch, optimizer, train_transforms)
-        # train_attr_dict = do_train_e2pn(e2pn_model, train_loader, device, epoch, optimizer, train_transforms)
+        # train_attr_dict = do_train(network, train_loader, device, epoch, optimizer, train_transforms)
+        train_attr_dict = do_train_e2pn(e2pn_model, train_loader, device, epoch, optimizer, train_transforms)
         write_summary(summary_writer, train_attr_dict, epoch, optimizer, "train")
         end_t = time.time()
         logging.info(f"time usage: {end_t - start_t:.3f}s")

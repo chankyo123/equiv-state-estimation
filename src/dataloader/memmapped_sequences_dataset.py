@@ -218,6 +218,9 @@ class MemMappedSequencesDataset(Dataset, SequencesDataset):
             seq_idx, row_in_seq, 
             self.data_descriptions[seq_idx][self.get_base_sensor_name()]["num_rows"]-self.genparams.window_size,
         )
+        # for key, value in ret.items():
+        #     print(f"Key: {key}, Value shape: {type(value)}")
+        # print()
         return ret
 
     def load_data_chunk(self, seq_idx, row):       

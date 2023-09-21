@@ -88,6 +88,41 @@ def rotate_point_cloud(data, R = None, max_degree = None):
 
     return rotated_data.T, rotation_matrix
 
+def rotate_point_cloud_batch(data, R = None, max_degree = None):
+    """ Randomly rotate the point clouds to augument the dataset
+        rotation is per shape based along up direction
+        Input:
+          batch x N x 6 array, original point clouds
+        R: 
+          6x6 array, optional Rotation matrix used to rotate the input
+        max_degree:
+          float, optional maximum DEGREE to randomly generate rotation 
+        Return:
+          batch x N x 6 array, rotated point clouds
+    """
+    # rotated_data = np.zeros(data.shape, dtype=np.float32)
+
+    if R is not None:
+      rotation_angle = R
+    elif max_degree is not None:
+      rotation_angle = np.random.randint(0, max_degree, 3) * np.pi / 180.0
+    else:
+      rotation_angle = sciR.random().as_matrix() if R is None else R
+    if isinstance(rotation_angle, list) or  rotation_angle.ndim == 1:
+      rotation_matrix = R_from_euler_np(rotation_angle)
+    else:
+      assert rotation_angle.shape[0] >= 3 and rotation_angle.shape[1] >= 3
+      rotation_matrix = np.block([[rotation_angle, np.zeros((3, 3))],
+                   [np.zeros((3, 3)), rotation_angle]])
+    if data is None:
+      return None, rotation_matrix
+    
+    #rotation_matrix shape : (6,6)
+    data = data.transpose(1,2,0)  # N x 6 x batch
+    rotated_data = np.dot(rotation_matrix, data)  # 6 x N x batch
+    rotated_data = rotated_data.transpose(2,1,0) # batch x N x 6
+
+    return rotated_data, rotation_matrix
 
 def batch_rotate_point_cloud(data, R = None):
     """ Randomly rotate the point clouds to augument the dataset

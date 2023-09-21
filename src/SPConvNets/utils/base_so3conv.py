@@ -789,23 +789,23 @@ class InvOutBlockMVD(nn.Module):
                     self.attention_layer2 = nn.Sequential(nn.Conv1d(c_in, c_in, 1), \
                                                             nn.ReLU(inplace=True), \
                                                             nn.Conv1d(c_in,1,1))
-                    b_in = 16
-                    b_out = 1024
-                    self.conv3 = nn.Sequential(nn.Conv1d(b_in, b_out,1), \
-                                                            nn.ReLU(inplace=True))
-                    a_in = 12
-                    a_out = 3
-                    self.conv4 = nn.Sequential(nn.Conv1d(a_in, a_out,1), \
-                                                            nn.ReLU(inplace=True))
-                    l5_in = 16
-                    l5_out = 1024
-                    self.linear5 = nn.Sequential(nn.Linear(l5_in, l5_out), \
-                                                            nn.ReLU(inplace=True))
+                    # b_in = 16
+                    # b_out = 1024
+                    # self.conv3 = nn.Sequential(nn.Conv1d(b_in, b_out,1), \
+                    #                                         nn.ReLU(inplace=True))
+                    # a_in = 12
+                    # a_out = 3
+                    # self.conv4 = nn.Sequential(nn.Conv1d(a_in, a_out,1), \
+                    #                                         nn.ReLU(inplace=True))
+                    # l5_in = 16
+                    # l5_out = 1024
+                    # self.linear5 = nn.Sequential(nn.Linear(l5_in, l5_out), \
+                    #                                         nn.ReLU(inplace=True))
                     
-                    l6_in = 64
-                    l6_out = 3
-                    self.linear6 = nn.Sequential(nn.Linear(l6_in, l6_out), \
-                                                            nn.ReLU(inplace=True))
+                    # l6_in = 64
+                    # l6_out = 3
+                    # self.linear6 = nn.Sequential(nn.Linear(l6_in, l6_out), \
+                    #                                         nn.ReLU(inplace=True))
                     
                 self.pointnet = sptk.PointnetSO3Conv(c_in,c_out,1)
                 
@@ -885,11 +885,11 @@ class InvOutBlockMVD(nn.Module):
             raise ValueError(f'pooling_method {self.pooling_method} not recognized')
 
     def forward_afirst_tlio(self, x):
-        # nb, nc, np, na -> nb, nc, na
+       # nb, nc, np, na -> nb, nc, na
 
         # attention first
-        nb, nc, np, na = x.feats.shape   # torch.Size([16, 128, 64, 12])
-        
+        nb, nc, np, na = x.feats.shape   # torch.Size([16, 128, 64, 12]) X / 1024, 128, 1, 12
+        # print("feat shape of invblock : ", nb, nc, np, na)
         if na == 1:
             attn = self.attention_layer(x.feats)
             attn = F.softmax(attn, dim=3)           # nb,nc,np,na
@@ -899,46 +899,7 @@ class InvOutBlockMVD(nn.Module):
             x_out = (x.feats * attn).sum(-1, keepdim=True)
         else:   # na = 12
             attn = self.attention_layer(x.feats)
-            attn_sfm = F.softmax(attn, dim=3)           # nb,nc,np,na :  torch.Size([16, 128, 64, 12])
-
-            attn_pool = torch.max(attn,2)[0]    # bca
-            attn_att2 = self.attention_layer2(attn_pool) # b1a
-            attn_transpose = attn_att2.transpose(0,1)
-            attn_conv3 = self.conv3(attn_transpose)  # 1ba -> 1b'a
-            attn_transpose = attn_conv3.transpose(1,2) # 1b'a -> 1ab'
-            attn_conv4 = self.conv4(attn_transpose)   # 1ab' -> 1a'b'
-            attn_squ = attn_conv4.squeeze(0)  # a'b'
-            attn_final = attn_squ.transpose(0,1)
-
-            # nb, nc, np, 1
-            x_out = (x.feats * attn_sfm).sum(-1, keepdim=True)
-
-        x_in = zptk.SphericalPointCloud(x.xyz, x_out, None)
-        
-        # nb, nc
-        x_out = self.pointnet(x_in).view(nb, -1)   # nbnp
-        # x_out = x_out.view(x_out.shape[0],1,x_out.shape[1])  #nb1np
-        x_out = self.linear5(x_out.transpose(0,1)).transpose(0,1)  #nb'np
-        x_out = self.linear6(x_out)  #nb'np'
-        
-        return F.normalize(x_out, p=2, dim=1), attn_final
-    
-    
-    def forward_afirst(self, x):
-        # nb, nc, np, na -> nb, nc, na
-
-        # attention first
-        nb, nc, np, na = x.feats.shape   # torch.Size([16, 128, 64, 12])
-        if na == 1:
-            attn = self.attention_layer(x.feats)
-            attn = F.softmax(attn, dim=3)           # nb,nc,np,na
-            attn_final = attn
-
-            # nb, nc, np, 1
-            x_out = (x.feats * attn).sum(-1, keepdim=True)
-        else:   # na = 12
-            attn = self.attention_layer(x.feats)
-            attn_sfm = F.softmax(attn, dim=3)           # nb,nc,np,na :  torch.Size([16, 128, 64, 12])
+            attn_sfm = F.softmax(attn, dim=3)           # nb,nc,np,na :  1024, 128, 1, 12
             # print("check attn_sfm size : ", attn_sfm.shape)
 
             attn_pool = torch.max(attn,2)[0]    # bca
@@ -947,11 +908,46 @@ class InvOutBlockMVD(nn.Module):
 
             # nb, nc, np, 1
             x_out = (x.feats * attn_sfm).sum(-1, keepdim=True)
+
         x_in = zptk.SphericalPointCloud(x.xyz, x_out, None)
 
         # nb, nc
         x_out = self.pointnet(x_in).view(nb, -1)
 
+        return F.normalize(x_out, p=2, dim=1)
+    
+    
+    def forward_afirst(self, x):
+        # nb, nc, np, na -> nb, nc, na
+
+        # attention first
+        nb, nc, np, na = x.feats.shape   # torch.Size([16, 128, 64, 12]) X / 1024, 128, 1, 12
+        # print("feat shape of invblock : ", nb, nc, np, na)
+        if na == 1:
+            attn = self.attention_layer(x.feats)
+            attn = F.softmax(attn, dim=3)           # nb,nc,np,na
+            attn_final = attn
+
+            # nb, nc, np, 1
+            x_out = (x.feats * attn).sum(-1, keepdim=True)
+        else:   # na = 12
+            attn = self.attention_layer(x.feats)
+            attn_sfm = F.softmax(attn, dim=3)           # nb,nc,np,na :  1024, 128, 1, 12
+            # print("check attn_sfm size : ", attn_sfm.shape)
+
+            attn_pool = torch.max(attn,2)[0]    # bca
+            attn_final = self.attention_layer2(attn_pool) # b1a
+            attn_final = attn_final.squeeze(1)  # ba
+
+            # nb, nc, np, 1
+            x_out = (x.feats * attn_sfm).sum(-1, keepdim=True)
+        # print('x_out shape : ', x_out.shape, x.xyz.shape) # torch.Size([1024, 128, 1, 1]) torch.Size([1024, 3, 1])
+        x_in = zptk.SphericalPointCloud(x.xyz, x_out, None)
+
+        # nb, nc
+        x_out = self.pointnet(x_in).view(nb, -1)
+        # print('after point net shape : ', self.pointnet(x_in).shape)   # torch.Size([1024, 64, 1])
+        # print("cov shape : ", F.normalize(x_out, p=2, dim=1).shape, attn_final.shape, x_out.shape)  #1024, 64 / 1024, 12 / 1024, 64
         return F.normalize(x_out, p=2, dim=1), attn_final
 
     def _pooling(self, x):

@@ -20,8 +20,10 @@ class InvSO3ConvModel(nn.Module):
         for block_param in params['backbone']:
             self.backbone.append(M.BasicSO3ConvBlock(block_param))
 
-        self.outblock = M.InvOutBlockMVD(params['outblock'])
-        # self.outblock = M.InvOutBlockPointnet(params['outblock'])
+        # self.outblock = M.InvOutBlockMVD(params['outblock'])
+        self.outblock1 = M.InvOutBlockMVD(params['outblock'])  #pred
+        self.outblock2 = M.InvOutBlockMVD(params['outblock'])  #pred_cov
+        
         self.na_in = params['na']
         self.invariance = True
 
@@ -33,7 +35,10 @@ class InvSO3ConvModel(nn.Module):
         for block_i, block in enumerate(self.backbone):
             x = block(x)
 
-        x = self.outblock(x)
+        # x = self.outblock(x)
+        x1 = self.outblock1(x)
+        x2 = self.outblock2(x)
+        
         # normal_x , att = x
         # x_cpu = x.cpu()
         # print("shape of x after the outblock : ", len(x), len(x[0]), len(x[0][0]), len(x[0][0]))  # 2 16 64 64
@@ -43,7 +48,7 @@ class InvSO3ConvModel(nn.Module):
         # xa = list(x)
         # xa = np.array(xa)
         # print("x_array shape : ", xa.shape)
-        return x
+        return x1, x2
 
     def get_anchor(self):
         return self.backbone[-1].get_anchor()
@@ -51,7 +56,8 @@ class InvSO3ConvModel(nn.Module):
 # Full Version
 def build_model(opt,
                 mlps=[[32,32], [64,64], [128,128], [128,128]],
-                out_mlps=[128, 64],
+                # out_mlps=[128, 64],
+                out_mlps=[128, 3],  # imu-e2pn
                 strides=[2, 2, 2, 2],
                 initial_radius_ratio = 0.2,
                 sampling_ratio = 0.8, #0.4, 0.36

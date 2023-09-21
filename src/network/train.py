@@ -26,6 +26,8 @@ import json
 from argparse import Namespace
 from torch import nn
 from network.parallel import DataParallel, DataParallelModel, DataParallelCriterion
+import vgtk.pc as pctk
+import vgtk.point3d as p3dtk
 
 def torch_to_numpy(torch_arr):
     return torch_arr.cpu().detach().numpy()
@@ -80,7 +82,7 @@ def do_train(network, train_loader, device, epoch, optimizer, transforms=[]):
     """
     train_targets, train_preds, train_preds_cov, train_losses = [], [], [], []
     network.train()
-
+    print(network)
     #for bid, (feat, targ, _, _) in enumerate(train_loader):
     for bid, sample in enumerate(train_loader):
         sample = to_device(sample, device)
@@ -109,7 +111,7 @@ def do_train(network, train_loader, device, epoch, optimizer, transforms=[]):
             # Leave off zeroth element since it's 0's. Ex: Net predicts 199 if there's 200 GT
             targ = sample["targ_dt_World"][:,1:,:].permute(0,2,1)
         
-        print('size check : ', pred.shape, pred_cov.shape, targ.shape, epoch)
+        print('size check : ', pred.shape, pred_cov.shape, targ.shape, epoch)   # torch.Size([1024, 3]) torch.Size([1024, 3]) torch.Size([1024, 3])
         
         loss = get_loss(pred, pred_cov, targ, epoch)
 
@@ -219,6 +221,86 @@ def do_train_e2pn(network, train_loader, device, epoch, optimizer, transforms=[]
         print('size check : ', pred.shape, pred_cov.shape, targ.shape, epoch)
         loss = get_loss(pred, pred_cov, targ, epoch)
         # print('loss executed')
+
+        train_targets.append(torch_to_numpy(targ))
+        train_preds.append(torch_to_numpy(pred))
+        train_preds_cov.append(torch_to_numpy(pred_cov))
+        train_losses.append(torch_to_numpy(loss))
+            
+        #print("Loss full: ", loss)
+
+        loss = loss.mean()
+        loss.backward()
+
+        #print("Loss mean: ", loss.item())
+        
+        #print("Gradients:")
+        #for name, param in network.named_parameters():
+        #    if param.requires_grad:
+        #        print(name, ": ", param.grad)
+
+        torch.nn.utils.clip_grad_norm_(network.parameters(), 0.1, error_if_nonfinite=True)
+        optimizer.step()
+
+    train_targets = np.concatenate(train_targets, axis=0)
+    train_preds = np.concatenate(train_preds, axis=0)
+    train_preds_cov = np.concatenate(train_preds_cov, axis=0)
+    train_losses = np.concatenate(train_losses, axis=0)
+    train_attr_dict = {
+        "targets": train_targets,
+        "preds": train_preds,
+        "preds_cov": train_preds_cov,
+        "losses": train_losses,
+    }
+    return train_attr_dict
+
+def do_train_imu_e2pn(network, train_loader, device, epoch, optimizer, transforms=[]):
+    """
+    Train network for one epoch using a specified data loader
+    Outputs all targets, predicts, predicted covariance params, and losses in numpy arrays
+    """
+    train_targets, train_preds, train_preds_cov, train_losses = [], [], [], []
+    network.train()
+
+    #for bid, (feat, targ, _, _) in enumerate(train_loader):
+    for bid, sample in enumerate(train_loader):
+        sample = to_device(sample, device)
+        for transform in transforms:
+            sample = transform(sample)
+        feat = sample["feats"]["imu0"]
+        optimizer.zero_grad()
+        
+        ### >>> check input feature shape ###
+        # print("feature shape : ", feat.shape)   # shape => torch.Size([1024, 6, 200]) (batch : 1024, pos : 6, sliding window : 200)
+        ### <<< check input feature shape ###
+        
+        #stack rotated imu
+        # _, pc = pctk.uniform_resample_np(data['pc'], self.opt.model.input_num)  # don't need to resample pc in imu case
+            # normalization 
+        pc = feat.cpu().numpy() # 1024,6,200
+        pc_tgt = pc.transpose(0,2,1) # 1024,200,6
+        pc = p3dtk.normalize_np(pc, batch=True)
+        pc = pc.transpose(0,2,1)   # 1024,200,6
+        pc_src, _ = pctk.rotate_point_cloud_batch(pc)  
+
+        pc_tensor = np.stack([pc_src, pc_tgt], axis=1)  #pc_tensor shape : (1024, 2, 200, 6)
+        # print("pc_tensor shape : ", pc_tensor.shape)   # shape => torch.Size([1024, 6, 200]) (batch : 1024, pos : 6, sliding window : 200)
+        # print(network)
+        
+        pred, pred_cov = network(feat)
+        # print('pred : ', pred, pred_cov, len(pred), len(pred_cov))
+        # pred = torch.cat(pred, dim=0)
+        # pred_cov = torch.cat(pred_cov, dim=0)
+
+        if len(pred.shape) == 2:
+            targ = sample["targ_dt_World"][:,-1,:]
+        else:
+            # Leave off zeroth element since it's 0's. Ex: Net predicts 199 if there's 200 GT
+            targ = sample["targ_dt_World"][:,1:,:].permute(0,2,1)
+        
+        # print('size check : ', pred.shape, pred_cov.shape, targ.shape, epoch) # torch.Size([1024, 64]) torch.Size([1024, 12]) torch.Size([1024, 3])
+        
+        loss = get_loss(pred, pred_cov, targ, epoch)
 
         train_targets.append(torch_to_numpy(targ))
         train_preds.append(torch_to_numpy(pred))
@@ -532,6 +614,7 @@ def net_train(args):
         return
     """
     train_loader = data.train_dataloader()
+    # print("train_loader is : ", train_loader, type(train_loader))
     train_transforms = data.get_train_transforms()
 
     end_t = time.time()
@@ -593,9 +676,10 @@ def net_train(args):
     ### >>> print model info ###
     # print("input dim : ",args.input_dim, " output dim : ", args.output_dim)
     # print(" >>> network info <<< ")
-    print(network)
+    # print(network)
     # print(" >>> imported info <<< ")
-    print(e2pn_model)
+    # print(e2pn_model)
+    # print("batch size : ", args.batch_size)
     ### <<< print model info ###
     
     total_params = network.get_num_params()
@@ -656,7 +740,8 @@ def net_train(args):
         logging.info(f"-------------- Training, Epoch {epoch} ---------------")
         start_t = time.time()
         # train_attr_dict = do_train(network, train_loader, device, epoch, optimizer, train_transforms)
-        train_attr_dict = do_train_e2pn(e2pn_model, train_loader, device, epoch, optimizer, train_transforms)
+        train_attr_dict = do_train_imu_e2pn(e2pn_model, train_loader, device, epoch, optimizer, train_transforms)
+        # train_attr_dict = do_train_e2pn(e2pn_model, train_loader, device, epoch, optimizer, train_transforms)
         write_summary(summary_writer, train_attr_dict, epoch, optimizer, "train")
         end_t = time.time()
         logging.info(f"time usage: {end_t - start_t:.3f}s")

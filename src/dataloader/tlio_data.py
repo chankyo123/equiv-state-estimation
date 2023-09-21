@@ -154,6 +154,7 @@ class TlioData:
             )
         else:
         """
+        print("self.train_dataset is : ", self.train_dataset, type(self.train_dataset))
         return DataLoader(
             self.train_dataset,
             batch_size=self.batch_size,
@@ -162,6 +163,14 @@ class TlioData:
             persistent_workers=self.persistent_workers,
             pin_memory=True,
             drop_last=True,
+        )
+        
+    def train_dataloader_imu_pc(self):
+        return DataLoader(
+            self.train_dataset,
+            batch_size=1,
+            shuffle=True,
+            num_workers=self.num_workers
         )
 
     def val_dataloader(self):

@@ -485,6 +485,8 @@ class PointnetSO3Conv(nn.Module):
         '''
         super(PointnetSO3Conv, self).__init__()
 
+        # print("check pointnetso3conv shape : ", dim_in, dim_out, kanchor)  # 128 64 1
+
         ### changing this part could make old models fail because of missing keys 'anchors'
         if kanchor == 1:
             self.anchors = None
@@ -513,13 +515,13 @@ class PointnetSO3Conv(nn.Module):
     def forward(self, x):
         xyz = x.xyz
         feats = x.feats
-        nb, nc, np, na = feats.shape
+        nb, nc, np, na = feats.shape # ([1024, 128, 1, 1])
 
         # normalize xyz
         xyz = xyz - xyz.mean(2,keepdim=True)
 
         if na == 1:
-            feats = torch.cat([x.feats, xyz[...,None]],1)
+            feats = torch.cat([x.feats, xyz[...,None]],1)  # 128 -> 131
         else:
             if self.drop_xyz:
                 feats = x.feats
@@ -529,5 +531,7 @@ class PointnetSO3Conv(nn.Module):
 
         feats = self.embed(feats)
         # bcpa -> bca
-        feats = torch.max(feats,2)[0]
+        feats = torch.max(feats,2)[0]  # ([1024, 64, 1])
+        # print("feats.shape : ", feats.shape)  
+        
         return feats # nb, nc, na

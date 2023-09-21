@@ -293,11 +293,13 @@ def do_train_imu_e2pn(network, train_loader, device, epoch, optimizer, transform
         # pred_cov = torch.cat(pred_cov, dim=0)
 
         if len(pred.shape) == 2:
+            # print("running!")
             targ = sample["targ_dt_World"][:,-1,:]
         else:
             # Leave off zeroth element since it's 0's. Ex: Net predicts 199 if there's 200 GT
             targ = sample["targ_dt_World"][:,1:,:].permute(0,2,1)
         
+        # print("sample displacment size check : ",sample["targ_dt_World"][:,1:,:].shape)
         # print('size check : ', pred.shape, pred_cov.shape, targ.shape, epoch) # torch.Size([1024, 64]) torch.Size([1024, 12]) torch.Size([1024, 3])
         
         loss = get_loss(pred, pred_cov, targ, epoch)

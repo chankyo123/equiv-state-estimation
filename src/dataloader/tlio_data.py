@@ -155,10 +155,14 @@ class TlioData:
         else:
         """
         print("self.train_dataset is : ", self.train_dataset, type(self.train_dataset))
+        # print()
+        # print(self.batch_size)
+        # print("iter" not in self.dataset_style)
         return DataLoader(
             self.train_dataset,
             batch_size=self.batch_size,
-            shuffle="iter" not in self.dataset_style,
+            # shuffle="iter" not in self.dataset_style,
+            shuffle=False,
             num_workers=self.num_workers,
             persistent_workers=self.persistent_workers,
             pin_memory=True,

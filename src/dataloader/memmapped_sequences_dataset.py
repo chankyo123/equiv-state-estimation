@@ -218,9 +218,13 @@ class MemMappedSequencesDataset(Dataset, SequencesDataset):
             seq_idx, row_in_seq, 
             self.data_descriptions[seq_idx][self.get_base_sensor_name()]["num_rows"]-self.genparams.window_size,
         )
+        # for key, value in ret['feats'].items():
+        #     print(f"Key: {key}, Value shape: {type(value), value.shape}")  -> value : 6, 200
+        #     print()
         # for key, value in ret.items():
         #     print(f"Key: {key}, Value shape: {type(value)}")
         # print()
+        # print("shape of targ_dt_World : ? ", ret['targ_dt_World'].shape) -> targ_dt_World(displacement) : 200 * 3
         return ret
 
     def load_data_chunk(self, seq_idx, row):       

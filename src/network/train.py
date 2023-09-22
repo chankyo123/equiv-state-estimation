@@ -268,6 +268,8 @@ def do_train_imu_e2pn(network, train_loader, device, epoch, optimizer, transform
         for transform in transforms:
             sample = transform(sample)
         feat = sample["feats"]["imu0"]
+        
+                
         optimizer.zero_grad()
         
         ### >>> check input feature shape ###
@@ -287,7 +289,12 @@ def do_train_imu_e2pn(network, train_loader, device, epoch, optimizer, transform
         # print("pc_tensor shape : ", pc_tensor.shape)   # shape => torch.Size([1024, 6, 200]) (batch : 1024, pos : 6, sliding window : 200)
         # print(network)
         
-        pred, pred_cov = network(feat)
+        if self.opt.debug_mode == 'check_equiv':
+            pc_ori = rotate_point_cloud_batch(pc)
+            feat,feat_cov = network(pc)
+            feat_ori, feat_cov_ori = network(pc_ori)
+
+        pred, pred_cov = network(pc_tensor)
         # print('pred : ', pred, pred_cov, len(pred), len(pred_cov))
         # pred = torch.cat(pred, dim=0)
         # pred_cov = torch.cat(pred_cov, dim=0)
@@ -760,3 +767,40 @@ def net_train(args):
     logging.info("Training complete.")
 
     return
+
+def check_equivariance(self, data):
+        in_tensors = data['pc'].to(self.opt.device)
+        in_label = data['label'].to(self.opt.device).reshape(-1)
+        in_Rlabel = data['R_label'].to(self.opt.device) #if self.opt.debug_mode == 'knownatt' else None #!!!!
+        in_R = data['R'].to(self.opt.device)
+
+        feat_conv, x = self.model(in_tensors, in_Rlabel)
+        pred, feat, x_feat = x
+        n_anchors = feat.shape[-1]
+        x_feat = x_feat.reshape(x_feat.shape[0], -1, n_anchors)
+
+        in_tensors_ori = torch.matmul(in_tensors, in_R) # B*n*3, B*3*3
+        feat_conv_ori, x_ori = self.model(in_tensors_ori, in_Rlabel)  # bn, bra, b[ca]
+        pred_ori, feat_ori, x_feat_ori = x_ori
+        n_anchors = feat_ori.shape[-1]
+        x_feat_ori = x_feat_ori.reshape(x_feat_ori.shape[0], -1, n_anchors)
+
+        trace_idx_ori = self.trace_idx_ori[in_Rlabel.flatten()] # ba
+        trace_idx_ori_p = trace_idx_ori[:,None,None].expand_as(feat_conv_ori) #bcpa
+        feat_conv_align = torch.gather(feat_conv, -1, trace_idx_ori_p)
+
+        trace_idx_ori_global = trace_idx_ori[:,None].expand_as(x_feat_ori) #bca
+        x_feat_align = torch.gather(x_feat, -1, trace_idx_ori_global)
+
+        # self.logger.log('TestEquiv', f'feat_ori: {feat_ori.shape}, x_feat_ori: {x_feat_ori.shape}')
+        # self.logger.log('TestEquiv', f'x_feat: {x_feat.shape}, x_feat_from_ori: {x_feat_from_ori.shape}')
+        # self.logger.log('TestEquiv', f'in_Rlabel: {in_Rlabel}, in_R: {in_R}')
+
+        cos_sim_before = self.cos_sim(feat_conv, feat_conv_ori)
+        cos_sim_after = self.cos_sim(feat_conv_align, feat_conv_ori)
+
+        self.logger.log('TestEquiv', f'per point cos before: {cos_sim_before}, after: {cos_sim_after}')
+
+        cos_sim_before = self.cos_sim(x_feat, x_feat_ori)
+        cos_sim_after = self.cos_sim(x_feat_align, x_feat_ori)
+        self.logger.log('TestEquiv', f'global cos before: {cos_sim_before}, after: {cos_sim_after}')

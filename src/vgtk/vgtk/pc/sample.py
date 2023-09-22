@@ -68,6 +68,7 @@ def furthest_sample_index(pc, n_sample, lazy_sample):
 
     # TODO
     # pc = pc.permute(0,2,1).contiguous()
+    # print("pc shape : ", pc.shape)
     rst = cuda_nn.furthest_point_sampling(pc, n_sample)
     return rst
 

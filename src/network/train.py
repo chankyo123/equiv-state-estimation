@@ -281,20 +281,34 @@ def do_train_imu_e2pn(network, train_loader, device, epoch, optimizer, transform
             # normalization 
         pc = feat.cpu().numpy() # 1024,6,200
         pc_tgt = pc.transpose(0,2,1) # 1024,200,6
+        pc_tgt = pc_tgt[:,:,:3]+pc_tgt[:,:,3:] #add acc. and ang-vel.
+        pc_tgt = torch.from_numpy(pc_tgt).to(torch.device('cuda'))
+        
         pc = p3dtk.normalize_np(pc, batch=True)
         pc = pc.transpose(0,2,1)   # 1024,200,6
         pc_src, _ = pctk.rotate_point_cloud_batch(pc)  
 
-        pc_tensor = np.stack([pc_src, pc_tgt], axis=1)  #pc_tensor shape : (1024, 2, 200, 6)
+        # pc_tensor = np.stack([pc_src, pc_tgt], axis=1)  #pc_tensor shape : (1024, 2, 200, 6)
+        # pc_tensor = torch.from_numpy(pc_tensor)
         # print("pc_tensor shape : ", pc_tensor.shape)   # shape => torch.Size([1024, 6, 200]) (batch : 1024, pos : 6, sliding window : 200)
         # print(network)
         
-        if self.opt.debug_mode == 'check_equiv':
-            pc_ori = rotate_point_cloud_batch(pc)
-            feat,feat_cov = network(pc)
-            feat_ori, feat_cov_ori = network(pc_ori)
+        pc_ori, _ = pctk.rotate_point_cloud_batch(pc)
+        
+        pc = torch.from_numpy(pc)
+        
+        pc_ori = torch.from_numpy(pc_ori)
+        
+        # feat,feat_cov = network(pc)
+        # feat_ori, feat_cov_ori = network(pc_ori)
+        # print("cos sim of feat : ", cos_sim(feat,feat_ori))
+        # print("cos sim of feat_cov : ", cos_sim(feat_cov,feat_cov_ori))
+        # assert False
 
-        pred, pred_cov = network(pc_tensor)
+        pred, pred_cov = network(pc_tgt)
+        # pred, pred_cov = network(feat)
+        
+        # print('feat info : ', feat.shape, pc_tensor.shape, type(feat), type(pc_tensor))
         # print('pred : ', pred, pred_cov, len(pred), len(pred_cov))
         # pred = torch.cat(pred, dim=0)
         # pred_cov = torch.cat(pred_cov, dim=0)
@@ -804,3 +818,10 @@ def check_equivariance(self, data):
         cos_sim_before = self.cos_sim(x_feat, x_feat_ori)
         cos_sim_after = self.cos_sim(x_feat_align, x_feat_ori)
         self.logger.log('TestEquiv', f'global cos before: {cos_sim_before}, after: {cos_sim_after}')
+        
+def cos_sim(f1, f2):
+        ### both bc(p)a
+        f1_norm = torch.norm(f1, dim=1)
+        f2_norm = torch.norm(f2, dim=1)
+        cos_similarity = (f1 * f2).sum(1) / (f1_norm * f2_norm)
+        return cos_similarity

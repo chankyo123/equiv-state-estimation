@@ -112,8 +112,11 @@ def rotate_point_cloud_batch(data, R = None, max_degree = None):
       rotation_matrix = R_from_euler_np(rotation_angle)
     else:
       assert rotation_angle.shape[0] >= 3 and rotation_angle.shape[1] >= 3
-      rotation_matrix = np.block([[rotation_angle, np.zeros((3, 3))],
-                   [np.zeros((3, 3)), rotation_angle]])
+      if data.shape[2] == 6:
+        rotation_matrix = np.block([[rotation_angle, np.zeros((3, 3))],
+                    [np.zeros((3, 3)), rotation_angle]])
+      elif data.shape[2] == 3:
+        rotation_matrix = rotation_angle
     if data is None:
       return None, rotation_matrix
     

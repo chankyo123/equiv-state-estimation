@@ -62,6 +62,7 @@ class TlioData:
         super().__init__()
 
         self.batch_size = batch_size
+        print(self.batch_size)
         self.data_path = data_path
         self.data_window_config = data_window_config
         self.augmentation_options = augmentation_options
@@ -160,7 +161,8 @@ class TlioData:
         # print("iter" not in self.dataset_style)
         return DataLoader(
             self.train_dataset,
-            batch_size=self.batch_size,
+            # batch_size=self.batch_size,
+            batch_size=8,
             shuffle="iter" not in self.dataset_style,
             # shuffle=False,
             num_workers=self.num_workers,

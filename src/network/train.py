@@ -286,7 +286,7 @@ def do_train_imu_e2pn(network, train_loader, device, epoch, optimizer, transform
         
         pc = p3dtk.normalize_np(pc, batch=True)
         pc = pc.transpose(0,2,1)   # 1024,200,6
-        pc_src, _ = pctk.rotate_point_cloud_batch(pc)  
+        pc_src, _ = pctk.batch_rotate_point_cloud(pc)  
 
         # pc_tensor = np.stack([pc_src, pc_tgt], axis=1)  #pc_tensor shape : (1024, 2, 200, 6)
         # pc_tensor = torch.from_numpy(pc_tensor)

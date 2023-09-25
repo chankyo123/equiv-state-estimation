@@ -146,6 +146,11 @@ def batch_rotate_point_cloud(data, R = None):
       rotation_matrix = rotation_angle[:3, :3]
     
     # since we are using pytorch...
+    # for 6D point cloud
+    if data.shape[2] == 6:
+      rotation_matrix = np.block([[rotation_matrix, np.zeros((3, 3))],
+                  [np.zeros((3, 3)), rotation_matrix]])
+
     rotation_matrix = torch.from_numpy(rotation_matrix).to(data.device)
     rotation_matrix = rotation_matrix[None].repeat(data.shape[0],1,1)
 

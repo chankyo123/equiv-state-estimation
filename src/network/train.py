@@ -294,11 +294,10 @@ def do_train_imu_e2pn(network, train_loader, device, epoch, optimizer, transform
         # print("pc_tensor shape : ", pc_tensor.shape)   # shape => torch.Size([1024, 6, 200]) (batch : 1024, pos : 6, sliding window : 200)
         # print(network)
         
-        pc_ori, _ = pctk.rotate_point_cloud_batch(pc)
+        pc_ori, _ = pctk.batch_rotate_point_cloud(pc) 
         
-        pc = torch.from_numpy(pc)
-        
-        pc_ori = torch.from_numpy(pc_ori)
+        # pc = torch.from_numpy(pc)
+        # pc_ori = torch.from_numpy(pc_ori)
         
         # feat,feat_cov = network(pc)
         # feat_ori, feat_cov_ori = network(pc_ori)
@@ -665,7 +664,6 @@ def net_train(args):
     device = torch.device(
         "cuda:0" if torch.cuda.is_available() and not args.cpu else "cpu"
     )
-    network = get_model(args.arch, net_config, args.input_dim, args.output_dim)
     
     ### >>> modify network to e2pn arch ###
     
@@ -684,17 +682,17 @@ def net_train(args):
         
     opt_e2pn = convert_dict_to_namespace(opt_e2pn)
     module = import_module('SPConvNets.models')
-    # e2pn_model = getattr(module, 'reg_so3net').build_model_from(opt_e2pn, None)
-    e2pn_model = getattr(module, 'inv_so3net_pn').build_model_from(opt_e2pn, None)
-    
-    
-    # network_e2pn = 
+
+    network = get_model(args.arch, net_config, args.input_dim, args.output_dim)
+    ##e2pn network
+    # network = getattr(module, 'reg_so3net').build_model_from(opt_e2pn, None)
+    network = getattr(module, 'inv_so3net_pn').build_model_from(opt_e2pn, None)
     
     
     ### <<< modify network to e2pn arch ###
     
     network.to(device)
-    e2pn_model.to(device)
+    # e2pn_model.to(device)
     
     
     ### >>> print model info ###
@@ -706,9 +704,9 @@ def net_train(args):
     # print("batch size : ", args.batch_size)
     ### <<< print model info ###
     
-    total_params = network.get_num_params()
-    logging.info(f'Network "{args.arch}" loaded to device {device}')
-    logging.info(f"Total number of parameters: {total_params}")
+    # total_params = network.get_num_params()
+    # logging.info(f'Network "{args.arch}" loaded to device {device}')
+    # logging.info(f"Total number of parameters: {total_params}")
 
     optimizer = torch.optim.Adam(network.parameters(), args.lr)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -736,7 +734,7 @@ def net_train(args):
             )
 
     summary_writer = SummaryWriter(osp.join(args.out_dir, "logs"))
-    summary_writer.add_text("info", f"total_param: {total_params}")
+    # summary_writer.add_text("info", f"total_param: {total_params}")
 
     logging.info(f"-------------- Init, Epoch {start_epoch} --------------")
     #attr_dict = get_inference(network, train_loader, device, start_epoch, train_transforms)
@@ -764,7 +762,7 @@ def net_train(args):
         logging.info(f"-------------- Training, Epoch {epoch} ---------------")
         start_t = time.time()
         # train_attr_dict = do_train(network, train_loader, device, epoch, optimizer, train_transforms)
-        train_attr_dict = do_train_imu_e2pn(e2pn_model, train_loader, device, epoch, optimizer, train_transforms)
+        train_attr_dict = do_train_imu_e2pn(network, train_loader, device, epoch, optimizer, train_transforms)
         # train_attr_dict = do_train_e2pn(e2pn_model, train_loader, device, epoch, optimizer, train_transforms)
         write_summary(summary_writer, train_attr_dict, epoch, optimizer, "train")
         end_t = time.time()

@@ -16,7 +16,7 @@ from torch.utils.tensorboard import SummaryWriter
 # TODO add the_world = ipdb.set_trace
 
 class Trainer():
-    def __init__(self, opt):
+    def __init__(self, opt,args):
         super(Trainer, self).__init__()
 
         opt_dict = vgtk.dump_args(opt)
@@ -59,12 +59,12 @@ class Trainer():
         # self.logger.log("Setup", "SummaryWriter initialized!")
 
         # build dataset
-        self._setup_datasets()
+        self._setup_datasets(args)
 
         # create network
         self._setup_model()
         self._setup_optim()
-        self._setup_metric()
+        # self._setup_metric()
 
         # init
         self.start_epoch = 0
@@ -149,7 +149,7 @@ class Trainer():
     def epoch_step(self):
         raise NotImplementedError('Not implemented')
 
-    def _setup_datasets(self):
+    def _setup_datasets(self,args):
         self.logger.log('Setup', 'Setup datasets!')
         self.dataset_train = None
         self.dataset_val = None
@@ -179,10 +179,10 @@ class Trainer():
                                                       **vars(self.opt.train_lr))
         self.logger.log('Setup', 'Optimizer all-set!')
 
-    def _setup_metric(self):
-        self.logger.log('Setup', 'Setup metric!')
-        self.metric = None
-        raise NotImplementedError('Not implemented')
+    # def _setup_metric(self):
+    #     self.logger.log('Setup', 'Setup metric!')
+    #     self.metric = None
+    #     raise NotImplementedError('Not implemented')
 
     # def _resume_from_ckpt(self, resume_path):
     #     if resume_path is None:

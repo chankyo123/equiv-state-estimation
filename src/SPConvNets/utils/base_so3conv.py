@@ -718,9 +718,10 @@ class ClsOutBlockPointnet_imu(nn.Module):
         # print("size after pointnet pooling : ", x_out.shape)
         # print('x after the pointnet and relu : ', x_out[:2,:2,:4])
 
-        x_dis = x_out.view(8,-1)
-        x_cov = x_out.view(8,-1)
+        x_dis = x_out.view(x_out.shape[0],-1)
+        x_cov = x_out.view(x_out.shape[0],-1)
         for lid, layer in enumerate(self.fcblock1):
+            print('counts : ',lid)
             x_dis = layer(x_dis)
         for lid, layer in enumerate(self.fcblock2):
             x_cov = layer(x_cov)

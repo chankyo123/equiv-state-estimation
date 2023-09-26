@@ -9,11 +9,15 @@ import os
 sys.path.insert(0,'/workspace/equivTLIO/src/vgtk')
 # sys.path.insert(0, os.path.join(os.path.dirname(__file__),'vgtk') )
 # print('sys path : ',sys.path)
+from SPConvNets.trainer_tlio import Trainer
+# from SPConvNets.options import opt
 
 import network
 import network.parallel as parallel
 
 from utils.argparse_utils import add_bool_arg
+import json
+from argparse import Namespace
 
 
 
@@ -85,10 +89,32 @@ if __name__ == "__main__":
     ###########################################################
     # Main
     ###########################################################
+    # if args.mode == "train":
+    #     opt.batch_size = 12
+    #     opt.test_batch_size = 24
+    #     opt.train_lr.decay_rate = 0.5
+    #     opt.train_lr.decay_step = 20000
+    #     opt.train_loss.attention_loss_type = 'default'
+    #     opt.num_iterations = 80000
+    
+    def convert_dict_to_namespace(d):
+        for key, value in d.items():
+            if isinstance(value, dict):
+                d[key] = convert_dict_to_namespace(value)
+        return Namespace(**d)
+    
+    with open('/workspace/equivTLIO/src/SPConvNets/opt-cls.json', 'r') as args_file:
+        opt_e2pn = json.load(args_file)    
+    opt_e2pn = convert_dict_to_namespace(opt_e2pn)
+    trainer = Trainer(opt_e2pn, args)
+        
     if args.mode == "train":
-        network.net_train(args)
+        # network.net_train(args)
+        trainer.train()
+        
     elif args.mode == "test":
         network.net_test(args)
+        
     elif args.mode == "eval":
         network.net_eval(args)
     else:

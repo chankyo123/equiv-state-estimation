@@ -40,6 +40,7 @@ class ClsSO3ConvModel(nn.Module):
             y = self.outblock(x, rlabel)
             return x.feats, y
         else:
+            print('check shape of x before outblock : ',x.xyz.shape, x.feats.shape)
             x = self.outblock(x, None)
             return x
 

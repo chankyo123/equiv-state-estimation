@@ -1,5 +1,6 @@
 local_data
 data
+LOG
 __pycache__
 *.pyc
 *.swp

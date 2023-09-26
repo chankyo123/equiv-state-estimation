@@ -242,7 +242,7 @@ class Trainer(vgtk.Trainer):
     def step(self):
         # New epoch
         self.epoch_counter += 1
-        print("[DataLoader]: At Epoch %d!"%self.epoch_counter)
+        # print("[DataLoader]: At Epoch %d!"%self.epoch_counter)
         self.dataset_iter = iter(self.dataset)
         data = next(self.dataset_iter)
 

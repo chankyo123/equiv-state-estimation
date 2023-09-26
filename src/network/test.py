@@ -395,7 +395,14 @@ def get_inference(network, data_loader, device, epoch):
         sample = to_device(sample, device)
         feat = sample["feats"]["imu0"]
         
-        pred, pred_cov = network(feat)
+        pc = feat.cpu().numpy() # 1024,6,200
+        pc = p3dtk.normalize_np(pc, batch=True)
+        
+        pc_tgt = pc.transpose(0,2,1) # 1024,200,6
+        pc_tgt = pc_tgt[:,:,:3]+pc_tgt[:,:,3:] #add acc. and ang-vel.
+
+        pc_tgt = torch.from_numpy(pc_tgt).to(torch.device('cuda'))
+        pred, pred_cov= network(pc_tgt)
 
         targ = sample["targ_dt_World"][:,-1,:]
         # Only grab the last prediction in this case

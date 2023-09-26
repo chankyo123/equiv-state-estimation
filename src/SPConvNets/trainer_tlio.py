@@ -25,6 +25,37 @@ def val(dataset_test, model, metric, best_acc, test_accs, device, logger, info,
     all_labels = []
     all_feats = []
     dataset_test.dataset.set_seed(0)
+    
+    self.dataset_iter = iter(self.dataset_test)
+    data = next(self.dataset_iter)
+    
+    for transform in self.train_transforms:
+        sample = transform(sample)
+    feat = sample["feats"]["imu0"]
+    
+    pc = feat.cpu().numpy() # 1024,6,200
+    pc = p3dtk.normalize_np(pc, batch=True)
+    
+    pc_tgt = pc.transpose(0,2,1) # 1024,200,6
+    pc_tgt = pc_tgt[:,:,:3]+pc_tgt[:,:,3:] #add acc. and ang-vel.
+
+    pc_tgt = torch.from_numpy(pc_tgt).to(torch.device('cuda'))
+    pred, pred_cov= self.model(pc_tgt)
+    
+    self.model(torch.rand_like(pc_ori))
+    if len(pred.shape) == 2:
+        targ = sample["targ_dt_World"][:,-1,:]
+    else:
+        targ = sample["targ_dt_World"][:,1:,:].permute(0,2,1)
+    
+    if isinstance(targ, np.ndarray):
+        targ = torch.tensor(targ).to(torch.device('cuda'))
+    elif targ.device.type == 'cpu':
+        targ = targ.to(torch.device('cuda'))
+    self.loss = get_loss(pred, pred_cov, targ, epoch)
+        
+        
+    
     for it, data in enumerate(tqdm(dataset_test, miniters=100, maxinterval=600)):
         in_tensors = data['pc'].to(device)
         bdim = in_tensors.shape[0]
@@ -417,7 +448,7 @@ class Trainer(vgtk.Trainer):
     def eval(self, dataset=None, best_acc=None, test_accs=None, info=''):
         self.logger.log('Testing','Evaluating test set!'+info)
         self.model.eval()
-        self.metric.eval()
+        # self.metric.eval()
         torch.cuda.reset_peak_memory_stats()
 
         ################## DEBUG ###############################
@@ -440,13 +471,16 @@ class Trainer(vgtk.Trainer):
             if test_accs is None:
                 test_accs = self.test_accs
 
-            mean_acc, best_acc, new_best = val(dataset, self.model, self.metric, 
-                best_acc, test_accs, self.opt.device, self.logger, info,
-                self.opt.debug_mode, self.attention_loss, self.opt.train_loss.attention_loss_type, 
-                self.att_permute_loss)
+            attr_dict = get_inference(network, seq_loader, device, epoch=50)
+            write_summary(summary_writer, train_attr_dict, epoch, optimizer, "val")
+            
+            # mean_acc, best_acc, new_best = val(dataset, self.model, self.metric, 
+            #     best_acc, test_accs, self.opt.device, self.logger, info,
+            #     self.opt.debug_mode, self.attention_loss, self.opt.train_loss.attention_loss_type, 
+            #     self.att_permute_loss)
 
         self.model.train()
-        self.metric.train()
+        # self.metric.train()
 
         return new_best, best_acc
         

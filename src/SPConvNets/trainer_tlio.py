@@ -16,6 +16,8 @@ from dataloader.tlio_data import TlioData
 
 from network.losses import get_loss, loss_class
 import vgtk.point3d as p3dtk
+from network.test import torch_to_numpy, get_inference, get_datalist
+
 
 def val(dataset_test, model, metric, best_acc, test_accs, device, logger, info,
         debug_mode, attention_loss, attention_loss_type, att_permute_loss):
@@ -345,14 +347,21 @@ class Trainer(vgtk.Trainer):
         pc_tgt = pc_tgt[:,:,:3]+pc_tgt[:,:,3:] #add acc. and ang-vel.
 
         pc_tgt = torch.from_numpy(pc_tgt).to(torch.device('cuda'))
-        pc_src, _ = pctk.batch_rotate_point_cloud(pc_tgt)  
-
         pc_ori, _ = pctk.batch_rotate_point_cloud(pc_tgt) 
         # pc_ori = torch.from_numpy(pc_ori).to(torch.device('cuda'))
         
         pred, pred_cov= self.model(pc_tgt)
         pred_ori,pred_cov_ori = self.model(pc_ori)
-        self.model(torch.rand_like(pc_ori))
+        pred_any, _ = self.model(torch.rand_like(pc_ori))
+        
+        # print('model info ', self.model)
+        # print('value of pred : ')
+        # print(pred)
+        # print('value of pred_ori : ')
+        # print(pred_ori)
+        # print('value of pred_any : ')
+        # print(pred_any)
+        # assert False
         
         if len(pred.shape) == 2:
             targ = sample["targ_dt_World"][:,-1,:]

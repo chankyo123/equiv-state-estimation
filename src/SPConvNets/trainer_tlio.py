@@ -329,7 +329,6 @@ class Trainer(vgtk.Trainer):
             targ = torch.tensor(targ).to(torch.device('cuda'))
         elif targ.device.type == 'cpu':
             targ = targ.to(torch.device('cuda'))
-        print(pred.device.type,pred_cov.device.type,targ.device.type)
         self.loss = get_loss(pred, pred_cov, targ, epoch)
         
         self.loss = self.loss.mean()

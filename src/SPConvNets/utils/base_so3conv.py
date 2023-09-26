@@ -721,7 +721,6 @@ class ClsOutBlockPointnet_imu(nn.Module):
         x_dis = x_out.view(x_out.shape[0],-1)
         x_cov = x_out.view(x_out.shape[0],-1)
         for lid, layer in enumerate(self.fcblock1):
-            print('counts : ',lid)
             x_dis = layer(x_dis)
         for lid, layer in enumerate(self.fcblock2):
             x_cov = layer(x_cov)

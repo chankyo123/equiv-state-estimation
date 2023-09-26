@@ -292,7 +292,6 @@ def do_train_imu_e2pn(network, train_loader, device, epoch, optimizer, transform
         # pc_tensor = np.stack([pc_src, pc_tgt], axis=1)  #pc_tensor shape : (1024, 2, 200, 6)
         # pc_tensor = torch.from_numpy(pc_tensor)
         # print("pc_tensor shape : ", pc_tensor.shape)   # shape => torch.Size([1024, 6, 200]) (batch : 1024, pos : 6, sliding window : 200)
-        print(network)
         
         pc_ori, _ = pctk.batch_rotate_point_cloud(pc_tgt) 
         
@@ -305,9 +304,7 @@ def do_train_imu_e2pn(network, train_loader, device, epoch, optimizer, transform
         # print("pc_tgt shape : ", pc_tgt.shape)   # shape => torch.Size(8,2,3)
         
         pred, pred_cov= network(pc_tgt)
-        print('check for ori version')
         pred_ori,pred_cov_ori = network(pc_ori)
-        print('check for random value version')
         network(torch.rand_like(pc_ori))
         
         # print()
@@ -335,7 +332,6 @@ def do_train_imu_e2pn(network, train_loader, device, epoch, optimizer, transform
             targ = sample["targ_dt_World"][:,1:,:].permute(0,2,1)
         
         # print("sample displacment size check : ",sample["targ_dt_World"][:,1:,:].shape)
-        print('size check : ', pred.shape, pred_cov.shape, targ.shape, epoch) # torch.Size([1024, 64]) torch.Size([1024, 12]) torch.Size([1024, 3])
         
         loss = get_loss(pred, pred_cov, targ, epoch)
 

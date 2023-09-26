@@ -350,10 +350,13 @@ class Trainer(vgtk.Trainer):
         pc_ori, _ = pctk.batch_rotate_point_cloud(pc_tgt) 
         # pc_ori = torch.from_numpy(pc_ori).to(torch.device('cuda'))
         
+        print("pred")
         pred, pred_cov= self.model(pc_tgt)
+        print("pred_ori")
         pred_ori,pred_cov_ori = self.model(pc_ori)
+        print("pred_any")
         pred_any, _ = self.model(torch.rand_like(pc_ori))
-        
+        assert False
         # print('model info ', self.model)
         # print('value of pred : ')
         # print(pred)

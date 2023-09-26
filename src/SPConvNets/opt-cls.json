@@ -34,7 +34,7 @@
   },
   "num_epochs": null,
   "num_iterations": 80000,
-  "batch_size": 12,
+  "batch_size": 8,
   "npt": 24,
   "num_thread": 8,
   "no_augmentation": false,

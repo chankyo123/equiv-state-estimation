@@ -273,7 +273,7 @@ class Trainer(vgtk.Trainer):
     def step(self):
         try:
             data = next(self.dataset_iter)
-            if data['seq_id'].shape[0] < self.opt.batch_size:
+            if len(data['seq_id']) < self.opt.batch_size:
                 raise StopIteration
         except StopIteration:
             # New epoch

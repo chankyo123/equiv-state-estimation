@@ -20,7 +20,8 @@ class ClsSO3ConvModel(nn.Module):
         for block_param in params['backbone']:
             self.backbone.append(M.BasicSO3ConvBlock(block_param))
         # self.outblock = M.ClsOutBlockR(params['outblock'])
-        self.outblock = M.ClsOutBlockPointnet(params['outblock'])
+        # self.outblock = M.ClsOutBlockPointnet(params['outblock'])
+        self.outblock = M.ClsOutBlockPointnet_imu(params['outblock'])
         self.na_in = params['na']
         self.invariance = True 
 
@@ -30,9 +31,10 @@ class ClsSO3ConvModel(nn.Module):
         # nb, np, 3 -> [nb, 3, np] x [nb, 1, np, na]
         input_x = x
         x = M.preprocess_input(x, self.na_in, False)
+        # print("shape of x before the back bone : ", x.xyz.shape, x.feats.shape)  # torch.Size([8, 3, 2]) torch.Size([8, 1, 2, 12])
         for block_i, block in enumerate(self.backbone):
             x = block(x)
-
+        # print("shape of x after forward of backbone : ", x.xyz.shape, x.feats.shape)   # torch.Size([8, 3, 1]) torch.Size([8, 256, 1, 12])
         if self.check_equiv:
             # x = self.outblock(x.feats, rlabel)
             y = self.outblock(x, rlabel)
@@ -48,13 +50,13 @@ class ClsSO3ConvModel(nn.Module):
 # Full Version
 def build_model(opt,
                 # mlps=[[64,64], [128,128], [256,256],[256]],
-                mlps=[[32,32], [64,64], [128,128],[256]],
+                mlps=[[32,32], [64,64], [128,128],[32]],
                 # mlps=[[128,128], [256,256], [512,512], [256]],
                 # mlps=[[16,16], [32,32], [64,64],[256]],
                 # mlps=[[32,32,32,32], [64,64,64,64], [128,128,128,128],[256]],
                 # mlps=[[32,], [64,], [128,],[256]],
                 # mlps=[[32,32], [64,64], [128,128],[128,128],[256]],
-                out_mlps=[256],
+                out_mlps=[32],
                 strides=[2,2,2,2],
                 # strides=[2,2,2,2,2],
                 initial_radius_ratio = 0.2,
@@ -69,7 +71,9 @@ def build_model(opt,
                 to_file=None):
 
 
-    device = opt.device
+    # device = opt.device
+    device = torch.device("cuda")
+    
     input_num = opt.model.input_num
     dropout_rate = opt.model.dropout_rate
     temperature = opt.train_loss.temperature

@@ -516,6 +516,7 @@ class PointnetSO3Conv(nn.Module):
         xyz = x.xyz
         feats = x.feats
         nb, nc, np, na = feats.shape # ([1024, 128, 1, 1])
+        # print("check pointnetso3conv before shape : ",nb, nc, np, na)  # 128 64 1
 
         # normalize xyz
         xyz = xyz - xyz.mean(2,keepdim=True)
@@ -532,6 +533,6 @@ class PointnetSO3Conv(nn.Module):
         feats = self.embed(feats)
         # bcpa -> bca
         feats = torch.max(feats,2)[0]  # ([1024, 64, 1])
-        # print("feats.shape : ", feats.shape)  
+        # print("check pointnetso3conv after shape : ", feats.shape)  # 128 64 1
         
         return feats # nb, nc, na

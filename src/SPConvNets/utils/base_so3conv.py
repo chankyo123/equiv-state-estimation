@@ -568,9 +568,11 @@ class ClsOutBlockPointnet(nn.Module):
 
         self.debug = debug
         
+        # print('pooling method is : ', self.pooling_method)  #permutation
+        
     def forward(self, x, label=None):
         x_out = x.feats # bcpa
-
+        # print('x after the backbone : ', x_out[:2,:2,:2,:4])
         if self.debug:
             return x_out[:,:40].mean(-1).mean(-1),None
         
@@ -585,13 +587,18 @@ class ClsOutBlockPointnet(nn.Module):
 
         out_feat = x_out # bcpa
         x_in = zptk.SphericalPointCloud(x.xyz, out_feat, x.anchors)
-
+        
+        
+        # print("size before pointnet pooling : ", x_in.xyz.shape,x_in.feats.shape, x_in.anchors.shape)
         x_out = self.pointnet(x_in) # bca
 
         norm = self.norm[norm_cnt]
         norm_cnt += 1
         x_out = F.relu(norm(x_out))
         # x_out = F.relu(x_out)
+        
+        # print("size after pointnet pooling : ", x_out.shape)
+        print('x after the pointnet and relu : ', x_out[:2,:2,:4])
         
         # mean pooling # bca -> bc
         if self.pooling_method == 'mean':
@@ -622,6 +629,107 @@ class ClsOutBlockPointnet(nn.Module):
         ### category prediction, rotation classs prediction, features for retrieval. 
         return x_out, out_feat.squeeze(), x_feat
 
+class ClsOutBlockPointnet_imu(nn.Module):
+    def __init__(self, params, norm=None, debug=False):
+        """outblock for imu-displacement and noise predication task"""
+        super(ClsOutBlockPointnet_imu, self).__init__()
+
+        c_in = params['dim_in']
+        mlp = params['mlp']
+        fc = params['fc']
+        k = params['k']
+        na = params['kanchor']
+        feat_all_anchors = params['feat_all_anchors']
+        anchor_ab_loss = params['anchor_ab_loss']
+        fc_on_concat = params['fc_on_concat']   # the output is only used in retrieval, not trained. 
+        drop_xyz = params['drop_xyz']
+
+        self.outDim = k
+
+        self.linear = nn.ModuleList()
+        self.norm = nn.ModuleList()
+
+        # ------------------ uniary conv ----------------
+        for c in mlp:
+            self.linear.append(nn.Conv2d(c_in, c, 1))
+            self.norm.append(nn.BatchNorm2d(c))
+            c_in = c
+        # -----------------------------------------------
+
+        # ----------------- spatial pooling ---------------------
+        # self.fc1 = nn.ModuleList()
+        # for c in fc:
+        #     self.fc1.append(nn.Linear(c_in, c))
+        #     # self.norm.append(nn.BatchNorm1d(c))
+        #     c_in = c
+        self.pointnet = sptk.PointnetSO3Conv(c_in, c_in, na, drop_xyz)
+        self.norm.append(nn.BatchNorm1d(c_in))
+        # -----------------------------------------------
+
+        # ----------------- displacement, cov prediction ------------
+        self.fcblock1 = nn.ModuleList()
+        self.fcblock1.append(nn.Linear(12*mlp[0], mlp[0], bias=True))
+        self.fcblock1.append(nn.ReLU(True))
+        self.fcblock1.append(nn.Dropout(0.5))
+        self.fcblock1.append(nn.Linear(mlp[0], 3, bias=True))
+        self.fcblock1.append(nn.ReLU(True))
+        self.fcblock1.append(nn.Dropout(0.5))
+        
+        self.fcblock2 = nn.ModuleList()
+        self.fcblock2.append(nn.Linear(12*mlp[0], mlp[0], bias=True))
+        self.fcblock2.append(nn.ReLU(True))
+        self.fcblock2.append(nn.Dropout(0.5))
+        self.fcblock2.append(nn.Linear(mlp[0], 3, bias=True))
+        self.fcblock2.append(nn.ReLU(True))
+        self.fcblock2.append(nn.Dropout(0.5))
+        # -----------------------------------------------
+
+        self.debug = debug
+        
+        # print('pooling method is : ', self.pooling_method)  #permutation
+        
+    def forward(self, x, label=None):
+        x_out = x.feats # bcpa
+        # print('x after the backbone : ', x_out[:2,:2,:2,:4])
+        if self.debug:
+            return x_out[:,:40].mean(-1).mean(-1),None
+        
+        norm_cnt = 0
+        end = len(self.linear)
+        for lid, linear in enumerate(self.linear):
+            norm = self.norm[norm_cnt]
+            x_out = linear(x_out)
+            x_out = F.relu(norm(x_out))
+            # x_out = F.relu(x_out)
+            norm_cnt += 1
+
+        out_feat = x_out # bcpa
+        x_in = zptk.SphericalPointCloud(x.xyz, out_feat, x.anchors)
+        
+        
+        # print("size before pointnet pooling : ", x_in.xyz.shape,x_in.feats.shape, x_in.anchors.shape)
+        x_out = self.pointnet(x_in) # bca
+
+        norm = self.norm[norm_cnt]
+        norm_cnt += 1
+        x_out = F.relu(norm(x_out))
+        # x_out = F.relu(x_out)
+        
+        # print("size after pointnet pooling : ", x_out.shape)
+        # print('x after the pointnet and relu : ', x_out[:2,:2,:4])
+
+        x_dis = x_out.view(8,-1)
+        x_cov = x_out.view(8,-1)
+        for lid, layer in enumerate(self.fcblock1):
+            x_dis = layer(x_dis)
+        for lid, layer in enumerate(self.fcblock2):
+            x_cov = layer(x_cov)
+        #make layer for covariance prediction.
+        # x_out = self.fc2(x_out) # b,c_out
+
+        return x_dis, x_cov
+    
+    
 class InvOutBlockR(nn.Module):
     def __init__(self, params, norm=None):
         super(InvOutBlockR, self).__init__()

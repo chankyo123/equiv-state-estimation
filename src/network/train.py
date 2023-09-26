@@ -273,46 +273,60 @@ def do_train_imu_e2pn(network, train_loader, device, epoch, optimizer, transform
         optimizer.zero_grad()
         
         ### >>> check input feature shape ###
-        # print("feature shape : ", feat.shape)   # shape => torch.Size([1024, 6, 200]) (batch : 1024, pos : 6, sliding window : 200)
+        # print("feature shape : ", feat.shape)   # shape => torch.Size([1024, 6, 200]) (batch : 1024, pos : 6, sliding window : 200)  / torch.Size([8, 6, 2])
         ### <<< check input feature shape ###
         
         #stack rotated imu
         # _, pc = pctk.uniform_resample_np(data['pc'], self.opt.model.input_num)  # don't need to resample pc in imu case
-            # normalization 
+        
+        # normalization 
         pc = feat.cpu().numpy() # 1024,6,200
+        pc = p3dtk.normalize_np(pc, batch=True)
+        
         pc_tgt = pc.transpose(0,2,1) # 1024,200,6
         pc_tgt = pc_tgt[:,:,:3]+pc_tgt[:,:,3:] #add acc. and ang-vel.
+
         pc_tgt = torch.from_numpy(pc_tgt).to(torch.device('cuda'))
-        
-        pc = p3dtk.normalize_np(pc, batch=True)
-        pc = pc.transpose(0,2,1)   # 1024,200,6
-        pc = torch.from_numpy(pc).to('cuda')
-        pc_src, _ = pctk.batch_rotate_point_cloud(pc)  
+        pc_src, _ = pctk.batch_rotate_point_cloud(pc_tgt)  
 
         # pc_tensor = np.stack([pc_src, pc_tgt], axis=1)  #pc_tensor shape : (1024, 2, 200, 6)
         # pc_tensor = torch.from_numpy(pc_tensor)
         # print("pc_tensor shape : ", pc_tensor.shape)   # shape => torch.Size([1024, 6, 200]) (batch : 1024, pos : 6, sliding window : 200)
-        # print(network)
+        print(network)
         
-        pc_ori, _ = pctk.batch_rotate_point_cloud(pc) 
-        
-        # pc = torch.from_numpy(pc)
-        # pc_ori = torch.from_numpy(pc_ori)
+        pc_ori, _ = pctk.batch_rotate_point_cloud(pc_tgt) 
         
         # feat,feat_cov = network(pc)
         # feat_ori, feat_cov_ori = network(pc_ori)
         # print("cos sim of feat : ", cos_sim(feat,feat_ori))
         # print("cos sim of feat_cov : ", cos_sim(feat_cov,feat_cov_ori))
         # assert False
-
-        pred, pred_cov = network(pc_tgt)
-        # pred, pred_cov = network(feat)
         
-        # print('feat info : ', feat.shape, pc_tensor.shape, type(feat), type(pc_tensor))
-        # print('pred : ', pred, pred_cov, len(pred), len(pred_cov))
-        # pred = torch.cat(pred, dim=0)
-        # pred_cov = torch.cat(pred_cov, dim=0)
-
+        # print("pc_tgt shape : ", pc_tgt.shape)   # shape => torch.Size(8,2,3)
+        
+        pred, pred_cov= network(pc_tgt)
+        print('check for ori version')
+        pred_ori,pred_cov_ori = network(pc_ori)
+        print('check for random value version')
+        network(torch.rand_like(pc_ori))
+        
+        # print()
+        # print(network)
+        # print()
+        # print("imu pointcloud before rotation : ")
+        # print(pc_tgt)
+        # print("imu pointcloud after  rotation : ")
+        # print(pc_ori)
+        # print()
+        # print('pred shape : ',pred.shape)
+        # print("displacement before rotation : ")
+        # print(pred[:4,:2,:4,:2])
+        # print()
+        # print("displacement after  rotation : ")
+        # print(pred_ori[:4,:2,:4,:2])
+        # print()
+        # assert False
+        
         if len(pred.shape) == 2:
             # print("running!")
             targ = sample["targ_dt_World"][:,-1,:]
@@ -321,7 +335,7 @@ def do_train_imu_e2pn(network, train_loader, device, epoch, optimizer, transform
             targ = sample["targ_dt_World"][:,1:,:].permute(0,2,1)
         
         # print("sample displacment size check : ",sample["targ_dt_World"][:,1:,:].shape)
-        # print('size check : ', pred.shape, pred_cov.shape, targ.shape, epoch) # torch.Size([1024, 64]) torch.Size([1024, 12]) torch.Size([1024, 3])
+        print('size check : ', pred.shape, pred_cov.shape, targ.shape, epoch) # torch.Size([1024, 64]) torch.Size([1024, 12]) torch.Size([1024, 3])
         
         loss = get_loss(pred, pred_cov, targ, epoch)
 
@@ -335,14 +349,7 @@ def do_train_imu_e2pn(network, train_loader, device, epoch, optimizer, transform
         loss = loss.mean()
         loss.backward()
 
-        #print("Loss mean: ", loss.item())
-        
-        #print("Gradients:")
-        #for name, param in network.named_parameters():
-        #    if param.requires_grad:
-        #        print(name, ": ", param.grad)
-
-        torch.nn.utils.clip_grad_norm_(network.parameters(), 0.1, error_if_nonfinite=True)
+        # torch.nn.utils.clip_grad_norm_(network.parameters(), 0.1, error_if_nonfinite=True)
         optimizer.step()
 
     train_targets = np.concatenate(train_targets, axis=0)
@@ -677,16 +684,20 @@ def net_train(args):
     
     # with open('/workspace/equivTLIO/src/SPConvNets/opt.json', 'r') as args_file:
     #     opt_e2pn = json.load(args_file)
-    with open('/workspace/equivTLIO/src/SPConvNets/opt-inv.json', 'r') as args_file:
-        opt_e2pn = json.load(args_file)
-        
+    # with open('/workspace/equivTLIO/src/SPConvNets/opt-inv.json', 'r') as args_file:
+    #     opt_e2pn = json.load(args_file)
+    # with open('/workspace/equivTLIO/src/SPConvNets/opt-cls-check_equiv.json', 'r') as args_file:
+    #     opt_e2pn = json.load(args_file)    
+    with open('/workspace/equivTLIO/src/SPConvNets/opt-cls.json', 'r') as args_file:
+        opt_e2pn = json.load(args_file)    
     opt_e2pn = convert_dict_to_namespace(opt_e2pn)
     module = import_module('SPConvNets.models')
 
     network = get_model(args.arch, net_config, args.input_dim, args.output_dim)
     ##e2pn network
+    network = getattr(module, 'cls_so3net_pn').build_model_from(opt_e2pn, None)
     # network = getattr(module, 'reg_so3net').build_model_from(opt_e2pn, None)
-    network = getattr(module, 'inv_so3net_pn').build_model_from(opt_e2pn, None)
+    # network = getattr(module, 'inv_so3net_pn').build_model_from(opt_e2pn, None)
     
     
     ### <<< modify network to e2pn arch ###

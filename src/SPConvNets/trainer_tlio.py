@@ -271,14 +271,17 @@ class Trainer(vgtk.Trainer):
 
     # For iter-based training
     def step(self):
-        # New epoch
-        self.epoch_counter += 1
-        # print("[DataLoader]: At Epoch %d!"%self.epoch_counter)
-        self.dataset_iter = iter(self.dataset)
-        data = next(self.dataset_iter)
+        try:
+            data = next(self.dataset_iter)
+            if data['seq_id'].shape[0] < self.opt.batch_size:
+                raise StopIteration
+        except StopIteration:
+            # New epoch
+            self.epoch_counter += 1
+            print("[DataLoader]: At Epoch %d!"%self.epoch_counter)
+            self.dataset_iter = iter(self.dataset)
+            data = next(self.dataset_iter)
 
-        if self.opt.debug_mode == 'check_equiv':
-            self._check_equivariance(data)
         else:
             self._optimize(data, self.epoch_counter)
         self.iter_counter += 1

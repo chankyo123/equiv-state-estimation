@@ -17,8 +17,11 @@ class ClsSO3ConvModel(nn.Module):
         super(ClsSO3ConvModel, self).__init__()
 
         self.backbone = nn.ModuleList()
-        for block_param in params['backbone']:
+        
+        # for block_param in params['backbone']:
+        for idx, block_param in enumerate(params['backbone']):
             self.backbone.append(M.BasicSO3ConvBlock(block_param))
+            # print(idx,'backbone parameter : ', M.BasicSO3ConvBlock[0])
         # self.outblock = M.ClsOutBlockR(params['outblock'])
         # self.outblock = M.ClsOutBlockPointnet(params['outblock'])
         self.outblock = M.ClsOutBlockPointnet_imu(params['outblock'])

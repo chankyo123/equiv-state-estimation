@@ -248,6 +248,7 @@ class SeparableS2ConvBlock(nn.Module):
         skip_feature = self.relu(self.norm(skip_feature))
         # skip_feature = self.relu(skip_feature)
         x_out = zptk.SphericalPointCloud(x.xyz, x.feats + skip_feature, x.anchors)
+        print("output after SeparableS2ConvBlock", x_out.feats[:4,:4,:,6])
         return inter_idx, inter_w, sample_idx, x_out
 
 class SeparableSO3ConvBlock(nn.Module):
@@ -598,7 +599,7 @@ class ClsOutBlockPointnet(nn.Module):
         # x_out = F.relu(x_out)
         
         # print("size after pointnet pooling : ", x_out.shape)
-        print('x after the pointnet and relu : ', x_out[:2,:2,:4])
+        # print('x after the pointnet and relu : ', x_out[:2,:2,:4])
         
         # mean pooling # bca -> bc
         if self.pooling_method == 'mean':

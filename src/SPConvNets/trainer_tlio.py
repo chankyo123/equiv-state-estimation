@@ -350,20 +350,34 @@ class Trainer(vgtk.Trainer):
         pc_ori, _ = pctk.batch_rotate_point_cloud(pc_tgt) 
         # pc_ori = torch.from_numpy(pc_ori).to(torch.device('cuda'))
         
-        print("pred")
+        print('pred')
         pred, pred_cov= self.model(pc_tgt)
-        print("pred_ori")
+        print('pred_ori')
         pred_ori,pred_cov_ori = self.model(pc_ori)
-        print("pred_any")
-        pred_any, _ = self.model(torch.rand_like(pc_ori))
-        assert False
+        print('pred_any')
+        pc_any = torch.rand_like(pc_ori)
+        pc_any2 = torch.rand_like(pc_ori)
+        pred_any, _ = self.model(pc_any)
+        print('pred_any2')
+        pred_any2, _ = self.model(pc_any2)
+        print()
+        # print('value of input')
+        # print(pc_tgt, pc_ori, pc_any, pc_any2)
+        
         # print('model info ', self.model)
-        # print('value of pred : ')
+        # print()
+        # print('in_tensor value : ', pc_tgt)
+        # print('in_tensor_ori value : ', pc_ori)
+        # print('in_tensor_any value : ', pc_any)
+        # print('>> << ')
+        # print('value of pred : ', pred.shape)
         # print(pred)
-        # print('value of pred_ori : ')
+        # print('value of pred_ori : ',pred_ori.shape)
         # print(pred_ori)
-        # print('value of pred_any : ')
+        # print('value of pred_any : ', pred_any.shape)
         # print(pred_any)
+        assert False
+        
         # assert False
         
         if len(pred.shape) == 2:
@@ -486,7 +500,7 @@ class Trainer(vgtk.Trainer):
             if test_accs is None:
                 test_accs = self.test_accs
 
-            attr_dict = get_inference(network, seq_loader, device, epoch=50)
+            attr_dict = get_inference(self.model, seq_loader, device, epoch=50)
             write_summary(summary_writer, train_attr_dict, epoch, optimizer, "val")
             
             # mean_acc, best_acc, new_best = val(dataset, self.model, self.metric, 

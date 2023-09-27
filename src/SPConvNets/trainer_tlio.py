@@ -347,19 +347,29 @@ class Trainer(vgtk.Trainer):
         pc_tgt = pc_tgt[:,:,:3]+pc_tgt[:,:,3:] #add acc. and ang-vel.
 
         pc_tgt = torch.from_numpy(pc_tgt).to(torch.device('cuda'))
-        pc_ori, _ = pctk.batch_rotate_point_cloud(pc_tgt) 
+        
+        # pc_ori, _ = pctk.batch_rotate_point_cloud(pc_tgt) 
+        from scipy.spatial.transform import Rotation as sciR
+        
+        rotation_matrix = sciR.random().as_matrix()
+        rotation_matrix = torch.from_numpy(rotation_matrix).to('cuda')
+        rotation_matrix = rotation_matrix[None].repeat(pc_tgt.shape[0],1,1)
+        rotation_matrix = rotation_matrix.float()
+        pc_tgt = pc_tgt.float()
+        pc_ori = torch.matmul(pc_tgt, rotation_matrix) # B*n*3, B*3*3
+        
         # pc_ori = torch.from_numpy(pc_ori).to(torch.device('cuda'))
         
         print('pred')
-        pred, pred_cov= self.model(pc_tgt)
+        pred, pred_cov, _= self.model(pc_tgt)
         print('pred_ori')
-        pred_ori,pred_cov_ori = self.model(pc_ori)
+        pred_ori,pred_cov_ori, _ = self.model(pc_ori)
         print('pred_any')
         pc_any = torch.rand_like(pc_ori)
         pc_any2 = torch.rand_like(pc_ori)
-        pred_any, _ = self.model(pc_any)
+        pred_any, _ , _ = self.model(pc_any)
         print('pred_any2')
-        pred_any2, _ = self.model(pc_any2)
+        pred_any2, _ , _ = self.model(pc_any2)
         print()
         # print('value of input')
         # print(pc_tgt, pc_ori, pc_any, pc_any2)
@@ -371,11 +381,11 @@ class Trainer(vgtk.Trainer):
         # print('in_tensor_any value : ', pc_any)
         # print('>> << ')
         # print('value of pred : ', pred.shape)
-        # print(pred)
+        # print(pred[:2,:2])
         # print('value of pred_ori : ',pred_ori.shape)
-        # print(pred_ori)
+        # print(pred_ori[:2,:2])
         # print('value of pred_any : ', pred_any.shape)
-        # print(pred_any)
+        # print(pred_any[:2,:2])
         assert False
         
         # assert False

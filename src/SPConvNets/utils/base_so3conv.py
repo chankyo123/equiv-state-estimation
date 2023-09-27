@@ -240,6 +240,7 @@ class SeparableS2ConvBlock(nn.Module):
             inter conv with skip connection
         '''
         skip_feature = x.feats
+        print("output before s2_conv", x.feats[:2,:2,:2,:2])
         inter_idx, inter_w, sample_idx, x = self.s2_conv(x, inter_idx, inter_w)
         
         if self.stride > 1:
@@ -248,7 +249,6 @@ class SeparableS2ConvBlock(nn.Module):
         skip_feature = self.relu(self.norm(skip_feature))
         # skip_feature = self.relu(skip_feature)
         x_out = zptk.SphericalPointCloud(x.xyz, x.feats + skip_feature, x.anchors)
-        print("output after SeparableS2ConvBlock", x_out.feats[:4,:4,:,6])
         return inter_idx, inter_w, sample_idx, x_out
 
 class SeparableSO3ConvBlock(nn.Module):

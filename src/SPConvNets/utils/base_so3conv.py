@@ -193,10 +193,18 @@ class BasicSO3ConvBlock(nn.Module):
 
     def forward(self, x):
         inter_idx, inter_w = None, None
+        cnt = 0
+        # print('input before conv block : ', x.feats[:2,:2,:2])
+        
         for conv, param in zip(self.blocks, self.params):
+            cnt += 1
             if param['type'] in ['inter', 'inter_block', 'separable_block', 's2_block', 'separable_s2_block']:
                 inter_idx, inter_w, _, x = conv(x, inter_idx, inter_w)
+                # if cnt == 2:
+                #     print('input before each conv block : ', x.feats[:2,:2,:2])
+                #     assert False
                 # import ipdb; ipdb.set_trace()
+                # print('input before each conv block : ', x.feats[:2,:2,:2])
 
                 if param['args']['stride'] > 1:
                     inter_idx, inter_w = None, None
@@ -205,7 +213,7 @@ class BasicSO3ConvBlock(nn.Module):
                 x = conv(x)
             else:
                 raise ValueError(f'No such type of SO3Conv {param["type"]}')
-
+        # print("output after separables2convblock : ",x.feats[:2,:2,:2])
         return x
 
     def get_anchor(self):
@@ -240,7 +248,7 @@ class SeparableS2ConvBlock(nn.Module):
             inter conv with skip connection
         '''
         skip_feature = x.feats
-        print("output before s2_conv", x.feats[:2,:2,:2,:2])
+        # print("output before s2_conv", x.feats[:2,:2,:2,:2])
         inter_idx, inter_w, sample_idx, x = self.s2_conv(x, inter_idx, inter_w)
         
         if self.stride > 1:
@@ -573,7 +581,7 @@ class ClsOutBlockPointnet(nn.Module):
         
     def forward(self, x, label=None):
         x_out = x.feats # bcpa
-        # print('x after the backbone : ', x_out[:2,:2,:2,:4])
+        print('x after the backbone : ', x_out[:2,:2,:2,:4])
         if self.debug:
             return x_out[:,:40].mean(-1).mean(-1),None
         

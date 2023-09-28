@@ -371,8 +371,8 @@ class Trainer(vgtk.Trainer):
         print('pred_any2')
         pred_any2, _ , _ = self.model(pc_any2)
         print()
-        # print('value of input')
-        # print(pc_tgt, pc_ori, pc_any, pc_any2)
+        print('value of input')
+        print(pc_tgt[:2,:2,:2], pc_ori[:2,:2,:2], pc_any[:2,:2,:2], pc_any2[:2,:2,:2])
         
         # print('model info ', self.model)
         # print()

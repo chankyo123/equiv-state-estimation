@@ -215,12 +215,25 @@ class BasicS2ConvV2(nn.Module):
         self.register_buffer('idxs_a', idxs_a)  #   c2, c1, k, a(channels), a(rotations)
 
     def forward(self, x):
-        # print('x shape of baseS2convV2 : ', x.shape)
+        
+        # print('value check')
+        # # print()
+        # # print(self.W[0,0,:4])
+        # # print(self.idx_map[:10])
+        # print(self.dim_in,self.dim_out, self.kernel_size)
+        # # print(self.idxs_k[:2,0,0,:2])
+        # # print(self.idxs_a[:2,0,0,:2])
+        # # print()
+        # print('x is ')
+        # # print(x[:2,:1,:1,:1,:10])
+        # print(x[0,0,:3,0,:4])
+        
         W = self.W[:,:,self.idx_map].reshape(self.dim_out, self.dim_in, self.kernel_size, self.anchor_size)    #C2,C1,kernel_size * anchor_size
         W = W[..., None].expand(-1,-1,-1,-1, self.anchor_size)
         W = torch.gather(W, 2, self.idxs_k)  # c2,c1,k,a(channels),a(rotations) -> c2,c1,k,a(channels),a(rotations)
         W = torch.gather(W, 3, self.idxs_a)  # c2,c1,k,a(channels),a(rotations) -> c2,c1,k,a(channels permuted),a(rotations)
         x = torch.einsum("dckar, bckpa->bdpr", W, x)
+        # print('input after basics2convv2: ', x[:2,:2,:2])
         return x
 
 # Basic SO3Conv
@@ -372,6 +385,9 @@ class S2Conv(nn.Module):
         self.register_buffer('kernels', torch.tensor(kernels).to(torch.float32))
 
     def forward(self, x, inter_idx=None, inter_w=None):
+        # print('value 2 check : ')
+        # print(self.stride, self.n_neighbor, self.anchors[:2,0,0], self.kernels, self.radius, self.sigma, self.lazy_sample, self.pooling, self.sym_kernel)
+        # assert False
         inter_idx, inter_w, xyz, feats, sample_idx = \
             L.inter_so3conv_grouping(x.xyz, x.feats, self.stride, self.n_neighbor,
                                   self.anchors, self.kernels,
@@ -386,6 +402,7 @@ class S2Conv(nn.Module):
         # print(feats[0].mean(-2))
         # print("-----------std -----------------")
         # print(feats[0].std(-2))
+        print('feats size check : ', x.feats[0,0,:3,:4],feats[0,0,:3,0,:4])
         # import ipdb; ipdb.set_trace()
         
         feats = self.basic_conv(feats)

@@ -39,7 +39,8 @@ class TlioData:
         dataset_style="mmap", # "mmap", "ram", or "iter". "iter" is best for huge datasets but sacrifice true randomness, mmap can go a bit farther than "ram" which just stores all in memory
         data_window_config={
             # "window_size": 200, # 200 window size @200 Hz for 1sec of input data
-            "window_size": 2, # 1 datapoint as a input to train imu-pointcloud
+            # "window_size": 2, # 1 datapoint as a input to train imu-pointcloud
+            "window_size": 4, # 1 datapoint as a input to train imu-pointcloud
             
             "step_period_us": 5000, # NOTE: unused at this point
             "data_in_t0_yaw_normalized_frame": False,

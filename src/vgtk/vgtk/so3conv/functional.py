@@ -152,6 +152,7 @@ def inter_so3conv_grouping(xyz, feats, stride, n_neighbor,
         inter_idx = None
 
     if inter_idx is None:
+        # print('n neighbor is : ', n_neighbor)
         grouped_xyz, inter_idx, sample_idx, new_xyz = zpconv.inter_zpconv_grouping_ball(xyz, stride,
                                                                          radius * radius_expansion, n_neighbor, lazy_sample)
         if not norot:

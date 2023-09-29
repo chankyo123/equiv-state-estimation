@@ -581,7 +581,7 @@ class ClsOutBlockPointnet(nn.Module):
         
     def forward(self, x, label=None):
         x_out = x.feats # bcpa
-        print('x after the backbone : ', x_out[:2,:2,:2,:4])
+        # print('x after the backbone : ', x_out[:2,:2,:2,:4])
         if self.debug:
             return x_out[:,:40].mean(-1).mean(-1),None
         
@@ -699,7 +699,7 @@ class ClsOutBlockPointnet_imu(nn.Module):
         
     def forward(self, x, label=None):
         x_out = x.feats # bcpa
-        print('x after the backbone : ', x_out[:2,:2,:2,:4])
+        # print('x after the backbone : ', x_out[:2,:2,:2,:4])
         if self.debug:
             return x_out[:,:40].mean(-1).mean(-1),None
         

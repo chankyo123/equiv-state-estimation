@@ -5,6 +5,7 @@ Output: 3x1 displacement, 3x1 covariance parameters
 """
 import sys
 import os
+from os import path as osp
 
 sys.path.insert(0,'/workspace/equivTLIO/src/vgtk')
 # sys.path.insert(0, os.path.join(os.path.dirname(__file__),'vgtk') )
@@ -106,12 +107,24 @@ if __name__ == "__main__":
     with open('/workspace/equivTLIO/src/SPConvNets/opt-cls.json', 'r') as args_file:
         opt_e2pn = json.load(args_file)    
     opt_e2pn = convert_dict_to_namespace(opt_e2pn)
-    trainer = Trainer(opt_e2pn, args)
+    trainer = Trainer(opt_e2pn, args) 
+        
+    if args.out_dir is not None:
+        if not osp.isdir(args.out_dir):
+            os.makedirs(args.out_dir)
+        if not osp.isdir(osp.join(args.out_dir, "checkpoints")):
+            os.makedirs(osp.join(args.out_dir, "checkpoints"))
+        if not osp.isdir(osp.join(args.out_dir, "logs")):
+            os.makedirs(osp.join(args.out_dir, "logs"))
+        with open(
+            os.path.join(args.out_dir, "parameters.json"), "w"
+        ) as parameters_file:
+            parameters_file.write(json.dumps(vars(args), sort_keys=True, indent=4))
         
     if args.mode == "train":
         # network.net_train(args)
         trainer.train()
-        
+        print('training done!')
     elif args.mode == "test":
         network.net_test(args)
         

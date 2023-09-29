@@ -64,8 +64,10 @@ class SequencesDataset:
         #    os.path.join(self.data_path, f"{self.split}_list.txt"), 
         #    dtype=np.dtype(str),
         #)
+        # print('self.spit is train or val ? : ', self.split)
         with open(os.path.join(self.data_path, f"{self.split}_list.txt")) as f:
             list_info = np.array([s.strip() for s in f.readlines() if len(s.strip()) > 0])
+        # print('lenth of list_info : ', len(list_info), list_info)
         
         # For picking exactly some particular sequences
         if self.sequence_subset is not None:
@@ -108,6 +110,7 @@ class SequencesDataset:
             self.data_list = np.array([seq for seq in self.data_list if seq not in seqs_to_remove])
 
     def get_sensor_file_basenames(self):
+        print('self genparams.data_style : ',self.genparams.data_style)
         if self.genparams.data_style == "aligned":
             return [COMBINED_SENSOR_NAME]
         elif self.genparams.data_style == "resampled":

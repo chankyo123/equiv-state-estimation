@@ -20,6 +20,7 @@ from utils.dotdict import dotdict
 from utils.utils import to_device
 from utils.logging import logging
 from utils.math_utils import *
+import vgtk.point3d as p3dtk
 
 
 def compute_rpe(rpe_ns, ps, ps_gt, yaw, yaw_gt):
@@ -404,6 +405,8 @@ def get_inference(network, data_loader, device, epoch):
         pc_tgt = torch.from_numpy(pc_tgt).to(torch.device('cuda'))
         pred, pred_cov= network(pc_tgt)
 
+        # print('estimation in eval is done!')
+        
         targ = sample["targ_dt_World"][:,-1,:]
         # Only grab the last prediction in this case
         if len(pred.shape) == 3:

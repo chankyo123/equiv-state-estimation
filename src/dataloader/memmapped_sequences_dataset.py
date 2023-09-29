@@ -70,11 +70,13 @@ class MemMappedSequencesDataset(Dataset, SequencesDataset):
         # with the help of the "approximate_frequency" attribute in the json files.
         
         base_sensor_name = self.get_base_sensor_name()
-
+        # print('num of seqs in self.data_description : ', len(self.data_descriptions))  #35
+        # print('len of self.data_list : ', len(self.data_list)) #35
         self.index_map = np.empty((sum([
             d[base_sensor_name]["num_rows"]-self.genparams.window_size+1 for d in self.data_descriptions
         ]), 2), dtype=np.int32)
         curr_idx = 0
+        # print('length of index_map : ', self.index_map.shape)  >> (18215977, 2)
 
         for i, desc in enumerate(self.data_descriptions):
             rows = desc[base_sensor_name]["num_rows"]
@@ -214,6 +216,8 @@ class MemMappedSequencesDataset(Dataset, SequencesDataset):
 
     def __getitem__(self, idx):
         seq_idx, row_in_seq = self.map_index(idx)
+        # print('what is this value : ', seq_idx, row_in_seq)
+        # print('what is this value : ', self.data_descriptions[seq_idx][self.get_base_sensor_name()]["num_rows"]-self.genparams.window_size)
         ret = self.load_and_preprocess_data_chunk(
             seq_idx, row_in_seq, 
             self.data_descriptions[seq_idx][self.get_base_sensor_name()]["num_rows"]-self.genparams.window_size,
@@ -221,9 +225,24 @@ class MemMappedSequencesDataset(Dataset, SequencesDataset):
         # for key, value in ret['feats'].items():
         #     print(f"Key: {key}, Value shape: {type(value), value.shape}")  -> value : 6, 200
         #     print()
+        
         # for key, value in ret.items():
-        #     print(f"Key: {key}, Value shape: {type(value)}")
-        # print()
+        #     # print(f"Key: {key}, Value shape: {type(value)}")
+        #     if key =='feats':
+        #         for key1, value1 in value.items():
+        #             print(f"Key: {key1}, Value shape: {type(value1), value1.shape}")
+                
+            
+            
+        # weight decay for consecutive imu data
+        # print("exponential increase for imu data!")
+        
+        weights = np.exp(np.arange(self.genparams.window_size))
+        # weights = 10 **(np.arange(self.genparams.window_size))
+        
+        # weights /= np.sum(weights)
+        weights /= weights[-1]
+        ret['feats']['imu0'] = (weights* ret['feats']['imu0']).astype(np.float32)
         # print("shape of targ_dt_World : ? ", ret['targ_dt_World'].shape) -> targ_dt_World(displacement) : 200 * 3
         return ret
 

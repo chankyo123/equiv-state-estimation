@@ -159,19 +159,21 @@ class TlioData:
         else:
         """
         print("self.train_dataset is : ", self.train_dataset, type(self.train_dataset))
+        print("total train dataset len is : ",len(self.train_dataset))
         # print()
         # print(self.batch_size)
         # print("iter" not in self.dataset_style)
         return DataLoader(
             self.train_dataset,
             # batch_size=self.batch_size,
-            batch_size=8,
+            batch_size=16,
             shuffle="iter" not in self.dataset_style,
             # shuffle=False,
             num_workers=self.num_workers,
             persistent_workers=self.persistent_workers,
             pin_memory=True,
-            drop_last=True,
+            # drop_last=True,
+            drop_last=False,
         )
         
     def train_dataloader_imu_pc(self):

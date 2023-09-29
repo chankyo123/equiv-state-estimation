@@ -402,7 +402,7 @@ class S2Conv(nn.Module):
         # print(feats[0].mean(-2))
         # print("-----------std -----------------")
         # print(feats[0].std(-2))
-        print('feats size check : ', x.feats[0,0,:3,:4],feats[0,0,:3,0,:4])
+        # print('feats size check : ', x.feats[0,0,:3,:4],feats[0,0,:3,0,:4])
         # import ipdb; ipdb.set_trace()
         
         feats = self.basic_conv(feats)

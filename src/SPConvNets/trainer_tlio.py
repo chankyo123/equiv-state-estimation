@@ -6,6 +6,7 @@ import vgtk
 import vgtk.pc as pctk
 import numpy as np
 import os
+from os import path as osp
 import torch.nn.functional as F
 from sklearn.neighbors import KDTree
 from SPConvNets.datasets.evaluation.retrieval import modelnet_retrieval_mAP
@@ -13,11 +14,12 @@ import vgtk.so3conv.functional as L
 from thop import profile
 from fvcore.nn import FlopCountAnalysis
 from dataloader.tlio_data import TlioData
+from dataloader.memmapped_sequences_dataset import MemMappedSequencesDataset
+from torch.utils.data import DataLoader
 
 from network.losses import get_loss, loss_class
 import vgtk.point3d as p3dtk
-from network.test import torch_to_numpy, get_inference, get_datalist
-
+from network.test import torch_to_numpy, get_inference, get_datalist, arg_conversion
 
 def val(dataset_test, model, metric, best_acc, test_accs, device, logger, info,
         debug_mode, attention_loss, attention_loss_type, att_permute_loss):
@@ -123,12 +125,28 @@ def val(dataset_test, model, metric, best_acc, test_accs, device, logger, info,
 
     return mean_acc, best_acc, new_best
 
+def save_model(args, epoch, network, optimizer, best=True, interrupt=False):
+                        if interrupt:
+                            model_path = osp.join(args.out_dir, "checkpoints", "checkpoint_latest.pt")
+                        if best:
+                            model_path = osp.join(args.out_dir, "checkpoint_best.pt")        
+                        else:
+                            model_path = osp.join(args.out_dir, "checkpoints", "checkpoint_%d.pt" % epoch)
+                        state_dict = {
+                            "model_state_dict": network.state_dict(),
+                            "epoch": epoch,
+                            "optimizer_state_dict": optimizer.state_dict(),
+                            "args": vars(args),
+                        }
+                        torch.save(state_dict, model_path)
+                        
 class Trainer(vgtk.Trainer):
     def __init__(self, opt, args):
         """Trainer for tlio regression. """
         self.attention_model = opt.model.flag.startswith('attention') and opt.debug_mode != 'knownatt'
         self.attention_loss = self.attention_model and opt.train_loss.cls_attention_loss
         self.att_permute_loss = opt.model.flag == 'permutation'
+        self.args = args
         if opt.group_test:
             self.rot_set = [None, 'so3'] # 'ico' 'z', 
             if opt.train_rot is None:
@@ -181,8 +199,7 @@ class Trainer(vgtk.Trainer):
             )
             data.prepare_data()
             
-            train_list = data.get_datalist("train")
-            self.train_loader = data.train_dataloader()
+            train_list = data.get_datalist("train")   #283
             self.dataset = data.train_dataloader()
             self.train_transforms = data.get_train_transforms()
             self.dataset_iter = iter(self.dataset)
@@ -264,18 +281,20 @@ class Trainer(vgtk.Trainer):
     #         self.metric = vgtk.CrossEntropyLoss()
 
     # For epoch-based training
-    def epoch_step(self):
+    def epoch_step(self, epoch):
         for it, data in tqdm(enumerate(self.dataset)):
             if self.opt.debug_mode == 'check_equiv':
                 self._check_equivariance(data)
             else:
-                self._optimize(data)
+                self._optimize(data, epoch)
 
     # For iter-based training
     def step(self):
         try:
             data = next(self.dataset_iter)
+            print("len(data['seq_id']) : ", len(data['seq_id']), 'batch_size : ', self.opt.batch_size )
             if len(data['seq_id']) < self.opt.batch_size:
+                print('all data is train is loaded!')
                 raise StopIteration
         except StopIteration:
             # New epoch
@@ -360,19 +379,19 @@ class Trainer(vgtk.Trainer):
         
         # pc_ori = torch.from_numpy(pc_ori).to(torch.device('cuda'))
         
-        print('pred')
-        pred, pred_cov, _= self.model(pc_tgt)
-        print('pred_ori')
-        pred_ori,pred_cov_ori, _ = self.model(pc_ori)
-        print('pred_any')
-        pc_any = torch.rand_like(pc_ori)
-        pc_any2 = torch.rand_like(pc_ori)
-        pred_any, _ , _ = self.model(pc_any)
-        print('pred_any2')
-        pred_any2, _ , _ = self.model(pc_any2)
-        print()
-        print('value of input')
-        print(pc_tgt[:2,:2,:2], pc_ori[:2,:2,:2], pc_any[:2,:2,:2], pc_any2[:2,:2,:2])
+        # print('pred')
+        pred, pred_cov = self.model(pc_tgt)
+        # print('pred_ori')
+        # pred_ori,pred_cov_ori = self.model(pc_ori)
+        # print('pred_any')
+        # pc_any = torch.rand_like(pc_ori)
+        # pc_any2 = torch.rand_like(pc_ori)
+        # pred_any, _  = self.model(pc_any)
+        # print('pred_any2')
+        # pred_any2, _ = self.model(pc_any2)
+        # print()
+        # print('value of input')
+        # print(pc_tgt[:2,:2,:2], pc_ori[:2,:2,:2], pc_any[:2,:2,:2], pc_any2[:2,:2,:2])
         
         # print('model info ', self.model)
         # print()
@@ -386,7 +405,7 @@ class Trainer(vgtk.Trainer):
         # print(pred_ori[:2,:2])
         # print('value of pred_any : ', pred_any.shape)
         # print(pred_any[:2,:2])
-        assert False
+        # assert False
         
         # assert False
         
@@ -480,10 +499,177 @@ class Trainer(vgtk.Trainer):
         self.logger.log('Training', f'{step}: {stats}'+mem_str)
         # self.summary.reset(['Loss', 'Pos', 'Neg', 'Acc', 'InvAcc'])
 
-    def test(self, dataset=None, best_acc=None, test_accs=None, info=''):
-        new_best, best_acc = self.eval(dataset, best_acc, test_accs, info)
+    def test(self, dataset=None, best_acc=None, test_accs=None, info='', epoch=50):
+        # new_best, best_acc = self.eval(dataset, best_acc, test_accs, info)
+        new_best, best_acc = self.eval_imu(dataset, best_acc, test_accs, info, epoch)
         return new_best, best_acc
 
+    def eval_imu(self, dataset=None, best_acc=None, test_accs=None, info='',epoch=50):
+        """
+        Main function for network evaluation
+        """
+        args= self.args
+        data_window_config, net_config = arg_conversion(args)
+        self.logger.log('Testing','Evaluating test set!'+info)
+        torch.cuda.reset_peak_memory_stats()
+
+        device = torch.device(
+            "cuda:0" if torch.cuda.is_available() else "cpu"
+        )
+        network = self.model.to(torch.device("cuda"))
+        network.eval()
+
+        all_targets, all_errors, all_sigmas = [], [], []
+        all_norm_targets, all_angle_targets, all_norm_errors, all_angle_errors = (
+            [],
+            [],
+            [],
+            [],
+        )
+        mse_losses, likelihood_losses, avg_mse_losses, avg_likelihood_losses = (
+            [],
+            [],
+            [],
+            [],
+        )
+        all_mahalanobis = []
+
+        test_list = get_datalist(os.path.join(args.root_dir, "test_list.txt"))
+
+        blacklist = ["loop_hidacori058_20180519_1525"]
+        # blacklist = []
+        
+        with torch.no_grad():
+            for data in test_list:
+                try:
+                    #seq_dataset = FbSequenceDataset(
+                    #    args.root_dir, [data], args, data_window_config, mode="eval"
+                    #)
+
+                    seq_dataset = MemMappedSequencesDataset(
+                        args.root_dir,
+                        "test",
+                        data_window_config,
+                        sequence_subset=[data],
+                        store_in_ram=True,
+                    )
+
+                    seq_loader = DataLoader(seq_dataset, batch_size=1024, shuffle=False)
+                except OSError as e:
+                    logging.error(e)
+                    continue
+
+                attr_dict = get_inference(network, seq_loader, device, epoch)
+                # print("inference is done!")
+                norm_targets = np.linalg.norm(attr_dict["targets"][:, :2], axis=1)
+                angle_targets = np.arctan2(
+                    attr_dict["targets"][:, 0], attr_dict["targets"][:, 1]
+                )
+                norm_preds = np.linalg.norm(attr_dict["preds"][:, :2], axis=1)
+                angle_preds = np.arctan2(attr_dict["preds"][:, 0], attr_dict["preds"][:, 1])
+                norm_errors = norm_preds - norm_targets
+                angle_errors = angle_preds - angle_targets
+                sigmas = np.exp(attr_dict["preds_cov"])
+                errors = attr_dict["preds"] - attr_dict["targets"]
+                a1 = np.expand_dims(errors, axis=1)
+                a2 = np.expand_dims(np.multiply(np.reciprocal(sigmas), errors), axis=-1)
+                mahalanobis_dists = np.einsum("tip,tpi->t", a1, a2)
+
+                all_targets.append(attr_dict["targets"])
+                all_errors.append(errors)
+                all_sigmas.append(sigmas)
+                mse_losses.append(errors ** 2)
+                avg_mse_losses.append(np.mean(errors ** 2, axis=1).reshape(-1, 1))
+                likelihood_losses.append(attr_dict["losses"])
+                avg_likelihood_losses.append(
+                    np.mean(attr_dict["losses"], axis=1).reshape(-1, 1)
+                )
+                all_norm_targets.append(norm_targets.reshape(-1, 1))
+                all_angle_targets.append(angle_targets.reshape(-1, 1))
+                all_norm_errors.append(norm_errors.reshape(-1, 1))
+                all_angle_errors.append(angle_errors.reshape(-1, 1))
+                all_mahalanobis.append(mahalanobis_dists.reshape(-1, 1))
+
+            arr_targets = np.concatenate(all_targets, axis=0)
+            arr_errors = np.concatenate(all_errors, axis=0)
+            arr_sigmas = np.concatenate(all_sigmas, axis=0)
+            arr_mse_losses = np.concatenate(mse_losses, axis=0)
+            arr_avg_mse_losses = np.concatenate(avg_mse_losses, axis=0)
+            arr_likelihood_losses = np.concatenate(likelihood_losses, axis=0)
+            arr_avg_likelihood_losses = np.concatenate(avg_likelihood_losses, axis=0)
+            arr_norm_targets = np.concatenate(all_norm_targets, axis=0)
+            arr_norm_errors = np.concatenate(all_norm_errors, axis=0)
+            arr_angle_targets = np.concatenate(all_angle_targets, axis=0)
+            arr_angle_errors = np.concatenate(all_angle_errors, axis=0)
+            arr_mahalanobis = np.concatenate(all_mahalanobis, axis=0)
+
+            arr_data = np.concatenate(
+                (
+                    arr_targets,
+                    arr_errors,
+                    arr_sigmas,
+                    arr_mse_losses,
+                    arr_avg_mse_losses,
+                    arr_likelihood_losses,
+                    arr_avg_likelihood_losses,
+                    arr_norm_targets,
+                    arr_norm_errors,
+                    arr_angle_targets,
+                    arr_angle_errors,
+                    arr_mahalanobis,
+                ),
+                axis=1,
+            )
+
+            dataset = pd.DataFrame(
+                arr_data,
+                index=range(arr_mahalanobis.shape[0]),
+                columns=[
+                    "targets_x",
+                    "targets_y",
+                    "targets_z",
+                    "errors_x",
+                    "errors_y",
+                    "errors_z",
+                    "sigmas_x",
+                    "sigmas_y",
+                    "sigmas_z",
+                    "mse_losses_x",
+                    "mse_losses_y",
+                    "mse_losses_z",
+                    "avg_mse_losses",
+                    "likelihood_losses_x",
+                    "likelihood_losses_y",
+                    "likelihood_losses_z",
+                    "avg_likelihood_losses",
+                    "norm_targets",
+                    "norm_errors",
+                    "angle_targets",
+                    "angle_errors",
+                    "mahalanobis",
+                ],
+            )
+
+            dstr = "d"
+            if args.do_bias_shift:
+                dstr = f"{dstr}-bias-{args.accel_bias_range}-{args.gyro_bias_range}"
+            if args.perturb_gravity:
+                dstr = f"{dstr}-grav-{args.perturb_gravity_theta_range}"
+            dstr = f"{dstr}.pkl"
+            if args.out_name is not None:
+                dstr = args.out_name
+            outfile = os.path.join(args.out_dir, dstr)
+            dataset.to_pickle(outfile)
+
+            network.train()
+
+        new_best = 0
+        best_acc = 0
+        
+        return new_best, best_acc
+
+    
+    
     def eval(self, dataset=None, best_acc=None, test_accs=None, info=''):
         self.logger.log('Testing','Evaluating test set!'+info)
         self.model.eval()
@@ -510,8 +696,8 @@ class Trainer(vgtk.Trainer):
             if test_accs is None:
                 test_accs = self.test_accs
 
-            attr_dict = get_inference(self.model, seq_loader, device, epoch=50)
-            write_summary(summary_writer, train_attr_dict, epoch, optimizer, "val")
+            val_attr_dict = get_inference(self.model, seq_loader, device)
+            # write_summary(summary_writer, val_attr_dict, epoch, optimizer, "val")
             
             # mean_acc, best_acc, new_best = val(dataset, self.model, self.metric, 
             #     best_acc, test_accs, self.opt.device, self.logger, info,
@@ -522,7 +708,19 @@ class Trainer(vgtk.Trainer):
         # self.metric.train()
 
         return new_best, best_acc
-        
+    
+    def train_epoch(self):
+        for i in range(self.opt.num_epochs):
+            self.lr_schedule.step()
+            self.epoch_step(i)
+
+            if i % self.opt.log_freq == 0:
+                self._print_running_stats(f'Epoch {i}')
+
+            if i > 0 and i % self.opt.save_freq == 0:
+                # self._save_network(f'Epoch{i}')
+                save_model(self.args, i, self.model, self.optimizer, best=True, interrupt=True)
+    
     def train_iter(self):
         for i in range(self.opt.num_iterations+1):
             # if i == 5:
@@ -548,20 +746,24 @@ class Trainer(vgtk.Trainer):
                             dataset_test, self.best_accs_ori[key], self.test_accs_ori[key], info)
                         if new_best:
                             self.logger.log('Testing', 'New best! Saving this model. '+info)
-                            self._save_network('best_'+info)
+                            # self._save_network('best_'+info)
                     for key, dataset_test in self.datasets_test_aug.items():
                         info = 'aug_' + str(key)
                         new_best, self.best_accs_aug[key] = self.test(
                             dataset_test, self.best_accs_aug[key], self.test_accs_aug[key], info)
                         if new_best:
                             self.logger.log('Testing', 'New best! Saving this model. '+info)
-                            self._save_network('best_'+info)
+                            # self._save_network('best_'+info)
                 else:
-                    new_best, self.best_acc = self.test()
-                    if new_best:
-                        self.logger.log('Testing', 'New best! Saving this model. ')
-                        self._save_network('best')
+                    # new_best, self.best_acc = self.test(epoch = self.epoch_counter)
+                    
+                        
+                    save_model(self.args, self.epoch_counter, self.model, self.optimizer, best=True, interrupt=True)
+                    
+                    self.logger.log('Testing', 'New best! Saving this model. ')
+                    # self._save_network('best')
 
             if i > 0 and i % self.opt.save_freq == 0:
-                self._save_network(f'Iter{i}')
+                tmp = 0
+                # self._save_network(f'Iter{i}')
                 

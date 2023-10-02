@@ -291,8 +291,9 @@ class Trainer(vgtk.Trainer):
     # For iter-based training
     def step(self):
         try:
+            # print('len of traindata set : ', len(self.dataset_iter))   #113850
             data = next(self.dataset_iter)
-            print("len(data['seq_id']) : ", len(data['seq_id']), 'batch_size : ', self.opt.batch_size )
+            # print("len(data['seq_id']) : ", len(data['seq_id']), 'batch_size : ', self.opt.batch_size )
             if len(data['seq_id']) < self.opt.batch_size:
                 print('all data is train is loaded!')
                 raise StopIteration
@@ -305,6 +306,8 @@ class Trainer(vgtk.Trainer):
 
         else:
             self._optimize(data, self.epoch_counter)
+        # print("train_loader and length of batched dataset is : ", len(self.dataset), len(self.dataset_iter)) # 113850
+        
         self.iter_counter += 1
 
     def cos_sim(self, f1, f2):

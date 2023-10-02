@@ -640,7 +640,7 @@ def net_train(args):
         return
     """
     train_loader = data.train_dataloader()
-    # print("train_loader is : ", train_loader, type(train_loader))
+    print("train_loader and length of batched dataset is : ", train_loader, len(train_loader), type(train_loader))
     train_transforms = data.get_train_transforms()
 
     end_t = time.time()

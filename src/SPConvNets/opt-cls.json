@@ -32,9 +32,9 @@
     "permute_soft": false,
     "drop_xyz": true
   },
-  "num_epochs": 100,
-  "num_iterations": 200,
-  "batch_size": 16,
+  "num_epochs": null,
+  "num_iterations": 800000,
+  "batch_size": 128,
   "npt": 24,
   "num_thread": 8,
   "no_augmentation": false,

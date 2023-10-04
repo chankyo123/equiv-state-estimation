@@ -104,6 +104,12 @@ if __name__ == "__main__":
                 d[key] = convert_dict_to_namespace(value)
         return Namespace(**d)
     
+    # print("args info")
+    # for arg_name in vars(args):
+    #     arg_value = getattr(args, arg_name)
+    #     print(f"{arg_name}: {arg_value}")
+    
+    
     with open('/workspace/equivTLIO/src/SPConvNets/opt-cls.json', 'r') as args_file:
         opt_e2pn = json.load(args_file)    
     opt_e2pn = convert_dict_to_namespace(opt_e2pn)
@@ -126,7 +132,11 @@ if __name__ == "__main__":
         trainer.train()
         print('training done!')
     elif args.mode == "test":
-        network.net_test(args)
+        # network.net_test(args)
+        trainer.eval_tlio() 
+        # trainer.eval_imu() 
+        # trainer.eval() 
+        
         
     elif args.mode == "eval":
         network.net_eval(args)

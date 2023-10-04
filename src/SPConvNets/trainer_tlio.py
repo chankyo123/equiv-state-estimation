@@ -361,6 +361,15 @@ class Trainer(vgtk.Trainer):
             sample = transform(sample)
         feat = sample["feats"]["imu0"]
         
+        #for gravity compensation 
+        gravity = np.array([0,0,-9.8066, 0, 0, 0])
+        feat = feat - gravity[np.newaxis, :, np.newaxis]
+        
+        # print()
+        # print('feats info : ')
+        # print(feat[0,:,0])
+        # print()
+        
         self.optimizer.zero_grad()
         pc = feat.cpu().numpy() # 1024,6,200
         pc = p3dtk.normalize_np(pc, batch=True)
@@ -671,6 +680,103 @@ class Trainer(vgtk.Trainer):
         
         return new_best, best_acc
 
+    
+    def eval_tlio(args):
+        self.logger.log('Testing','Evaluating test set!'+info)
+        self.model.eval()
+        # self.metric.eval()
+        torch.cuda.reset_peak_memory_stats()
+        
+            
+            # write_summary(summary_writer, val_attr_dict, epoch, optimizer, "val")
+            
+            # mean_acc, best_acc, new_best = val(dataset, self.model, self.metric, 
+            #     best_acc, test_accs, self.opt.device, self.logger, info,
+            #     self.opt.debug_mode, self.attention_loss, self.opt.train_loss.attention_loss_type, 
+            #     self.att_permute_loss)
+
+        
+        
+        test_list_path = osp.join(args.root_dir, "test_list.txt")
+        test_list = get_datalist(test_list_path)
+
+        device = torch.device(
+            "cuda:0" if torch.cuda.is_available() and not args.cpu else "cpu"
+        )
+
+        # initialize containers
+        all_metrics = {}
+
+        with torch.no_grad():
+            for data in test_list:
+                try:
+                    seq_dataset = MemMappedSequencesDataset(
+                        args.root_dir,
+                        "test",
+                        data_window_config,
+                        sequence_subset=[data],
+                        store_in_ram=True,
+                    )
+                    seq_loader = DataLoader(seq_dataset, batch_size=1024, shuffle=False)
+                except OSError as e:
+                    print(e)
+                    continue
+
+                # Obtain trajectory
+                val_attr_dict = get_inference(self.model, seq_loader, device)
+                # val_attr_dict = get_inference(network, seq_loader, device, epoch=50)
+                traj_attr_dict = pose_integrate(args, seq_dataset, net_attr_dict["preds"])
+                outdir = osp.join(args.out_dir, data)
+                if osp.exists(outdir) is False:
+                    os.mkdir(outdir)
+                outfile = osp.join(outdir, "trajectory.txt")
+                trajectory_data = np.concatenate(
+                    [
+                        traj_attr_dict["ts"].reshape(-1, 1),
+                        traj_attr_dict["pos_pred"],
+                        traj_attr_dict["pos_gt"],
+                    ],
+                    axis=1,
+                )
+                np.savetxt(outfile, trajectory_data, delimiter=",")
+
+                # obtain metrics
+                metrics, plot_dict = compute_metrics_and_plotting(
+                    args, net_attr_dict, traj_attr_dict
+                )
+                logging.info(metrics)
+                all_metrics[data] = metrics
+
+                outfile_net = osp.join(outdir, "net_outputs.txt")
+                net_outputs_data = np.concatenate(
+                    [
+                        plot_dict["pred_ts"].reshape(-1, 1),
+                        plot_dict["preds"],
+                        plot_dict["targets"],
+                        plot_dict["pred_sigmas"],
+                    ],
+                    axis=1,
+                )
+                np.savetxt(outfile_net, net_outputs_data, delimiter=",")
+
+                if args.save_plot:
+                    make_plots(args, plot_dict, outdir)
+
+                try:
+                    with open(args.out_dir + "/metrics.json", "w") as f:
+                        json.dump(all_metrics, f, indent=1)
+                except ValueError as e:
+                    raise e
+                except OSError as e:
+                    print(e)
+                    continue
+                except Exception as e:
+                    raise e
+
+        self.model.train()
+        return
+    
+    
     
     
     def eval(self, dataset=None, best_acc=None, test_accs=None, info=''):

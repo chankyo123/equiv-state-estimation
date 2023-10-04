@@ -166,7 +166,7 @@ class TlioData:
         return DataLoader(
             self.train_dataset,
             # batch_size=self.batch_size,
-            batch_size=256,
+            batch_size=512,
             shuffle="iter" not in self.dataset_style,
             # shuffle=False,
             num_workers=self.num_workers,

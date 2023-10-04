@@ -768,7 +768,8 @@ def net_train(args):
 
         logging.info(f"-------------- Training, Epoch {epoch} ---------------")
         start_t = time.time()
-        # train_attr_dict = do_train(network, train_loader, device, epoch, optimizer, train_transforms)
+        # train_attr_dict = do_train(network, train_loader, device, epoch, optimizer, train_transforms)        
+        
         train_attr_dict = do_train_imu_e2pn(network, train_loader, device, epoch, optimizer, train_transforms)
         # train_attr_dict = do_train_e2pn(e2pn_model, train_loader, device, epoch, optimizer, train_transforms)
         write_summary(summary_writer, train_attr_dict, epoch, optimizer, "train")

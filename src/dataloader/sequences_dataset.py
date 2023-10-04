@@ -110,7 +110,7 @@ class SequencesDataset:
             self.data_list = np.array([seq for seq in self.data_list if seq not in seqs_to_remove])
 
     def get_sensor_file_basenames(self):
-        print('self genparams.data_style : ',self.genparams.data_style)
+        # print('self genparams.data_style : ',self.genparams.data_style)
         if self.genparams.data_style == "aligned":
             return [COMBINED_SENSOR_NAME]
         elif self.genparams.data_style == "resampled":
@@ -171,6 +171,7 @@ class SequencesDataset:
     def unpack_data_window(self, seq_data, seq_desc, row):
         feats = {}
         ts_us_base_sensor = None
+        # print(self.genparams.data_style) #resampled
         if self.genparams.data_style == "aligned":
             data_chunk = seq_data[COMBINED_SENSOR_NAME][row:row+self.genparams.window_size]
             # Make sure idx was valid with sufficient padding for window

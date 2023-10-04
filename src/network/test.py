@@ -396,6 +396,10 @@ def get_inference(network, data_loader, device, epoch):
         sample = to_device(sample, device)
         feat = sample["feats"]["imu0"]
         
+        #for gravity compensation 
+        gravity = np.array([0,0,-9.8066, 0, 0, 0])
+        feat = feat - gravity[np.newaxis, :, np.newaxis]
+        
         pc = feat.cpu().numpy() # 1024,6,200
         pc = p3dtk.normalize_np(pc, batch=True)
         
@@ -403,6 +407,8 @@ def get_inference(network, data_loader, device, epoch):
         pc_tgt = pc_tgt[:,:,:3]+pc_tgt[:,:,3:] #add acc. and ang-vel.
 
         pc_tgt = torch.from_numpy(pc_tgt).to(torch.device('cuda'))
+        # pc_tgt = pc_tgt.float()
+        
         pred, pred_cov= network(pc_tgt)
 
         # print('estimation in eval is done!')
